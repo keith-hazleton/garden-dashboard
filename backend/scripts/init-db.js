@@ -29,10 +29,29 @@ db.exec(`
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE INDEX IF NOT EXISTS idx_sensor_readings_timestamp 
+  CREATE INDEX IF NOT EXISTS idx_sensor_readings_timestamp
     ON sensor_readings(timestamp DESC);
-  CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_id 
+  CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_id
     ON sensor_readings(sensor_id);
+
+  -- Alert configuration
+  CREATE TABLE IF NOT EXISTS alert_settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT UNIQUE NOT NULL,
+    value TEXT NOT NULL
+  );
+
+  -- Alert history (for cooldown tracking)
+  CREATE TABLE IF NOT EXISTS alert_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sensor_id TEXT NOT NULL,
+    alert_type TEXT NOT NULL, -- moisture_low, moisture_high, temp_low, temp_high
+    message TEXT,
+    sent_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_alert_history_sensor
+    ON alert_history(sensor_id, alert_type, sent_at DESC);
 
   -- Plants in your garden
   CREATE TABLE IF NOT EXISTS plants (
@@ -109,6 +128,8 @@ db.exec(`
     rows INTEGER NOT NULL DEFAULT 4,
     cols INTEGER NOT NULL DEFAULT 8,
     sensor_id TEXT, -- links to moisture sensor
+    temp_sensor_id TEXT, -- links to temperature sensor
+    profile TEXT DEFAULT 'warm_season', -- cool_season, warm_season, seedling
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -1013,6 +1034,62 @@ const insertCompanions = db.transaction((companions) => {
 
 insertCompanions(companionRelationships);
 console.log('Seeded', companionRelationships.length, 'companion planting relationships');
+
+// Seed default alert settings
+const seedSetting = db.prepare(`
+  INSERT OR REPLACE INTO alert_settings (key, value) VALUES (?, ?)
+`);
+
+const alertSettings = [
+  // ntfy configuration
+  ['ntfy_enabled', 'true'],
+  ['ntfy_server', 'https://ntfy.sh'],
+  ['ntfy_topic', 'hazletok-garden-atp7b'],
+
+  // Alert cooldown in minutes (don't repeat same alert within this time)
+  ['alert_cooldown_minutes', '60'],
+
+  // Threshold profiles (JSON)
+  ['profile_cool_season', JSON.stringify({
+    moisture_low: 15,
+    moisture_critical: 10,
+    moisture_high: 85,
+    temp_low: 35,
+    temp_critical_low: 32,
+    temp_high: 80,
+    temp_critical_high: 90
+  })],
+  ['profile_warm_season', JSON.stringify({
+    moisture_low: 20,
+    moisture_critical: 15,
+    moisture_high: 80,
+    temp_low: 50,
+    temp_critical_low: 45,
+    temp_high: 90,
+    temp_critical_high: 95
+  })],
+  ['profile_seedling', JSON.stringify({
+    moisture_low: 30,
+    moisture_critical: 20,
+    moisture_high: 75,
+    temp_low: 55,
+    temp_critical_low: 50,
+    temp_high: 85,
+    temp_critical_high: 90
+  })],
+
+  // Default profile for sensors not assigned to a bed
+  ['default_profile', 'warm_season']
+];
+
+const insertSettings = db.transaction((settings) => {
+  for (const [key, value] of settings) {
+    seedSetting.run(key, value);
+  }
+});
+
+insertSettings(alertSettings);
+console.log('Seeded alert settings with ntfy configuration');
 
 db.close();
 console.log('Database setup complete!');

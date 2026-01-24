@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const { checkMoistureAlert, checkTemperatureAlert } = require('../services/alerts');
 
 // Ecowitt gateway webhook endpoint
 // The gateway POSTs form-encoded data to this endpoint
@@ -68,6 +69,34 @@ router.post('/ecowitt', (req, res) => {
     });
 
     insertMany();
+
+    // Check alerts for each sensor (async, don't block response)
+    // Moisture sensors
+    for (let i = 1; i <= 8; i++) {
+      const moistureKey = `soilmoisture${i}`;
+      if (data[moistureKey] !== undefined) {
+        checkMoistureAlert(
+          `soil_moisture_${i}`,
+          `Soil Moisture ${i}`,
+          parseFloat(data[moistureKey])
+        ).catch(err => console.error('Moisture alert error:', err));
+      }
+    }
+
+    // Temperature sensors
+    for (let i = 1; i <= 8; i++) {
+      let tempValue = data[`tf_ch${i}`];
+      if (tempValue === undefined) {
+        tempValue = data[`soiltemp${i}f`];
+      }
+      if (tempValue !== undefined) {
+        checkTemperatureAlert(
+          `soil_temp_${i}`,
+          `Soil Temp ${i}`,
+          parseFloat(tempValue)
+        ).catch(err => console.error('Temperature alert error:', err));
+      }
+    }
 
     res.status(200).send('OK');
   } catch (error) {
