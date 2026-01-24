@@ -14,6 +14,7 @@ A local garden monitoring dashboard for Raspberry Pi with Ecowitt soil sensors a
 - **Bed Mapping**: Visual grid layout for raised beds with drag-and-drop plant placement
 - **Companion Planting**: 250 plant relationships - see good/bad companions when planning beds
 - **Task Manager**: Garden maintenance tasks with recurring reminders
+- **Push Notifications**: Alerts via ntfy when soil moisture or temperature hits critical levels
 - **Light/Dark Theme**: Toggle between light and dark mode (preference saved)
 
 ## Tech Stack
@@ -216,7 +217,99 @@ Temperature sensors display with color-coded status:
 - **Warm** (75-85°F): Good for warm season crops
 - **Hot** (>85°F): May stress plants
 
-### Step 7: Set a Static IP (Recommended)
+### Step 7: Set Up Push Notifications (Optional)
+
+The dashboard can send push notifications to your phone when soil conditions reach critical levels. This uses [ntfy](https://ntfy.sh), a free push notification service.
+
+#### 1. Install the ntfy App
+
+- **iOS**: [ntfy on App Store](https://apps.apple.com/us/app/ntfy/id1625396347)
+- **Android**: [ntfy on Google Play](https://play.google.com/store/apps/details?id=io.heckel.ntfy) or [F-Droid](https://f-droid.org/en/packages/io.heckel.ntfy/)
+
+#### 2. Subscribe to Your Topic
+
+Open the ntfy app and subscribe to your topic. The default topic configured during database initialization is stored in the `alert_settings` table. You can check it with:
+
+```bash
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "SELECT value FROM alert_settings WHERE key = 'ntfy_topic';"
+```
+
+In the ntfy app, tap **+** and enter your topic name to subscribe.
+
+#### 3. Configure Alert Settings
+
+Alert settings are stored in the database and can be modified:
+
+```bash
+# View all alert settings
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "SELECT key, value FROM alert_settings;"
+
+# Change the ntfy topic
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = 'your-topic-name' WHERE key = 'ntfy_topic';"
+
+# Disable alerts
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = 'false' WHERE key = 'ntfy_enabled';"
+
+# Change cooldown period (minutes between repeat alerts)
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = '120' WHERE key = 'alert_cooldown_minutes';"
+
+# Change quiet hours (no notifications during sleep)
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = '22' WHERE key = 'quiet_hours_start';"  # 10 PM
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = '7' WHERE key = 'quiet_hours_end';"     # 7 AM
+```
+
+#### 4. Alert Thresholds
+
+Alerts use threshold profiles that can be assigned to beds. Available profiles:
+
+| Profile | Moisture Low | Moisture Critical | Temp Low | Temp Critical |
+|---------|--------------|-------------------|----------|---------------|
+| warm_season | 20% | 15% | 50F | 45F |
+| cool_season | 15% | 10% | 35F | 32F |
+| seedling | 30% | 20% | 55F | 50F |
+
+To view or modify a profile:
+
+```bash
+# View warm_season profile
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "SELECT value FROM alert_settings WHERE key = 'profile_warm_season';"
+
+# Update a profile (JSON format)
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = '{\"moisture_low\":25,\"moisture_critical\":18,\"moisture_high\":80,\"temp_low\":55,\"temp_critical_low\":50,\"temp_high\":90,\"temp_critical_high\":95}' WHERE key = 'profile_warm_season';"
+```
+
+#### Self-Hosting ntfy (Alternative)
+
+If you prefer to self-host, you can run ntfy on your Raspberry Pi:
+
+```bash
+# Install ntfy
+curl -sSL https://archive.heckel.io/apt/pubkey.txt | sudo apt-key add -
+sudo apt install apt-transport-https
+echo "deb https://archive.heckel.io/apt debian main" | sudo tee /etc/apt/sources.list.d/ntfy.list
+sudo apt update && sudo apt install ntfy
+
+# Start ntfy server
+sudo systemctl enable ntfy
+sudo systemctl start ntfy
+
+# Update garden dashboard to use local server
+sqlite3 ~/garden-dashboard/backend/data/garden.db \
+  "UPDATE alert_settings SET value = 'http://localhost:80' WHERE key = 'ntfy_server';"
+```
+
+Then configure the ntfy app to use your Pi's IP address as the server.
+
+### Step 8: Set a Static IP (Recommended)
 
 To ensure your Pi always has the same IP address:
 
@@ -352,6 +445,8 @@ garden-dashboard/
 │   │   ├── beds.js            # Bed mapping + companion planting
 │   │   ├── tasks.js           # Task management
 │   │   └── weather.js         # Open-Meteo integration
+│   ├── services/
+│   │   └── alerts.js          # Push notification alerts via ntfy
 │   ├── scripts/
 │   │   └── init-db.js         # Database initialization + seed data
 │   ├── server.js              # Express application
