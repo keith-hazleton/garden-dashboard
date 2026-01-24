@@ -22,7 +22,9 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sensor_id TEXT NOT NULL,
     sensor_name TEXT,
+    sensor_type TEXT DEFAULT 'moisture', -- moisture, temperature, or combo
     moisture_percent REAL,
+    temperature_f REAL,
     battery_status TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -146,13 +148,22 @@ db.exec(`
 
 console.log('Database initialized at:', dbPath);
 
-// Seed zone 10b plants - comprehensive list
+// Data sources for plant information (Zone 10a - Los Angeles County / La Cañada Flintridge area):
+// - UC Master Gardener Time of Planting (South Coast): https://ucanr.edu/program/uc-master-gardener-program/time-planting
+// - UC Master Gardeners of Los Angeles County: https://ucanr.edu/county/los-angeles-county/gardening-uc-master-gardener-program
+// - Spring & Summer Gardening Basics for LA County: https://ucanr.edu/sites/default/files/2011-11/131790.pdf
+// - Fall & Winter Gardening Basics for LA County: https://celosangeles.ucanr.edu/files/131791.pdf
+// - UC Master Gardeners of Sacramento County (bulbs): https://ucanr.edu/sites/sacmg/Sacramento_Bulb_Planting_Schedule/
+// - UC Master Gardeners of Santa Clara County (flowers): https://ucanr.edu/site/uc-master-gardeners-santa-clara-county/cut-flower-planting-chart
+// - UC ANR (Agriculture and Natural Resources): https://ucanr.edu/
+
+// Seed zone 10a plants - comprehensive list for LA County / South Coast region
 const seedPlants = db.prepare(`
   INSERT OR IGNORE INTO plants (name, variety, category, days_to_maturity, spacing_inches, sun_requirement, water_needs, frost_tolerant)
   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
-const zone10bPlants = [
+const zone10aPlants = [
   // === TOMATOES ===
   ['Tomato', 'Cherokee Purple', 'vegetable', 80, 24, 'full', 'medium', 0],
   ['Tomato', 'Sun Gold', 'vegetable', 65, 24, 'full', 'medium', 0],
@@ -340,6 +351,26 @@ const zone10bPlants = [
   ['Echinacea', null, 'flower', 120, 18, 'full', 'low', 1],
   ['Black-Eyed Susan', null, 'flower', 120, 18, 'full', 'low', 1],
 
+  // === BULB FLOWERS (data cross-checked with UC Master Gardeners) ===
+  ['Gladiolus', 'Standard Mix', 'flower', 90, 6, 'full', 'medium', 0],
+  ['Gladiolus', 'Nanus (Dwarf)', 'flower', 70, 4, 'full', 'medium', 0],
+  ['Tulip', 'Darwin Hybrid', 'flower', 120, 6, 'full', 'medium', 1],
+  ['Tulip', 'Parrot', 'flower', 120, 6, 'full', 'medium', 1],
+  ['Daffodil', 'King Alfred', 'flower', 90, 6, 'full', 'low', 1],
+  ['Daffodil', 'Tête-à-Tête', 'flower', 90, 4, 'full', 'low', 1],
+  ['Iris', 'Dutch', 'flower', 90, 4, 'full', 'medium', 1],
+  ['Iris', 'Bearded', 'flower', 365, 12, 'full', 'low', 1],
+  ['Ranunculus', null, 'flower', 90, 6, 'full', 'medium', 1],
+  ['Anemone', 'De Caen', 'flower', 90, 6, 'partial', 'medium', 1],
+  ['Freesia', null, 'flower', 100, 3, 'full', 'medium', 1],
+  ['Lily', 'Asiatic', 'flower', 90, 12, 'full', 'medium', 1],
+  ['Lily', 'Oriental', 'flower', 120, 12, 'partial', 'medium', 1],
+  ['Crocosmia', 'Lucifer', 'flower', 90, 6, 'full', 'medium', 0],
+  ['Calla Lily', null, 'flower', 75, 12, 'partial', 'medium', 0],
+  ['Hyacinth', null, 'flower', 90, 6, 'full', 'medium', 1],
+  ['Allium', 'Ornamental', 'flower', 90, 8, 'full', 'low', 1],
+  ['Amaryllis', null, 'flower', 60, 12, 'partial', 'medium', 0],
+
   // === FRUITS ===
   ['Strawberry', 'Everbearing', 'fruit', 90, 12, 'full', 'medium', 1],
   ['Strawberry', 'June-bearing', 'fruit', 365, 12, 'full', 'medium', 1],
@@ -368,8 +399,36 @@ const insertMany = db.transaction((plants) => {
   }
 });
 
-insertMany(zone10bPlants);
-console.log('Seeded', zone10bPlants.length, 'common zone 10b plants');
+insertMany(zone10aPlants);
+console.log('Seeded', zone10aPlants.length, 'plants for zone 10a (LA County/South Coast)');
+
+// Add notes for bulbs with special care requirements (per UC Master Gardeners)
+const updateNotes = db.prepare(`
+  UPDATE plants SET notes = ? WHERE name = ? AND (variety = ? OR (variety IS NULL AND ? IS NULL))
+`);
+
+const bulbNotes = [
+  ['Tulip', 'Darwin Hybrid', 'Requires 6-8 weeks refrigerator chilling before planting. Store in paper bag away from fruit. Treat as annual in zone 10b.'],
+  ['Tulip', 'Parrot', 'Requires 6-8 weeks refrigerator chilling before planting. Store in paper bag away from fruit. Treat as annual in zone 10b.'],
+  ['Hyacinth', null, 'Requires 6-8 weeks refrigerator chilling before planting. Store in paper bag away from fruit.'],
+  ['Gladiolus', 'Standard Mix', 'Plant corms at 2-week intervals for extended bloom. Can overwinter in ground in zone 10b. Superb cut flower.'],
+  ['Gladiolus', 'Nanus (Dwarf)', 'Plant corms at 2-week intervals for extended bloom. Can overwinter in ground in zone 10b.'],
+  ['Ranunculus', null, 'Soak tubers in water for 45 minutes before planting. Plant with "toes" pointing down. Prefers excellent drainage.'],
+  ['Anemone', 'De Caen', 'Soak tubers before planting. Plant with scarred side up in full sun.'],
+  ['Daffodil', 'King Alfred', 'Rodent-resistant due to bitter taste. Naturalizes well. No chilling required in zone 10b.'],
+  ['Daffodil', 'Tête-à-Tête', 'Rodent-resistant due to bitter taste. Naturalizes well. No chilling required in zone 10b.'],
+  ['Freesia', null, 'Naturalizes well in zone 10b. Fragrant cut flower.'],
+  ['Calla Lily', null, 'Requires consistent moisture. Can be grown in containers or pond margins.'],
+];
+
+const insertBulbNotes = db.transaction((notes) => {
+  for (const [name, variety, note] of notes) {
+    updateNotes.run(note, name, variety, variety);
+  }
+});
+
+insertBulbNotes(bulbNotes);
+console.log('Added care notes for', bulbNotes.length, 'bulb varieties');
 
 // Add planting windows for zone 10b (rough guidelines)
 const seedWindow = db.prepare(`
@@ -377,170 +436,173 @@ const seedWindow = db.prepare(`
   SELECT id, ?, ?, ? FROM plants WHERE name = ? AND (variety = ? OR (variety IS NULL AND ? IS NULL))
 `);
 
-const zone10bWindows = [
-  // === TOMATOES (indoor start Dec-Feb, transplant Feb-Apr) ===
-  ['Tomato', 'Cherokee Purple', 'indoor_start', 12, 2],
-  ['Tomato', 'Cherokee Purple', 'transplant', 2, 4],
-  ['Tomato', 'Sun Gold', 'indoor_start', 12, 2],
-  ['Tomato', 'Sun Gold', 'transplant', 2, 4],
-  ['Tomato', 'Brandywine', 'indoor_start', 12, 2],
-  ['Tomato', 'Brandywine', 'transplant', 2, 4],
-  ['Tomato', 'Roma', 'indoor_start', 12, 2],
-  ['Tomato', 'Roma', 'transplant', 2, 4],
-  ['Tomato', 'Early Girl', 'indoor_start', 12, 2],
-  ['Tomato', 'Early Girl', 'transplant', 2, 4],
-  ['Tomato', 'San Marzano', 'indoor_start', 12, 2],
-  ['Tomato', 'San Marzano', 'transplant', 2, 4],
-  ['Tomato', 'Cherry (Sweet 100)', 'indoor_start', 12, 2],
-  ['Tomato', 'Cherry (Sweet 100)', 'transplant', 2, 4],
-  ['Tomato', 'Beefsteak', 'indoor_start', 12, 2],
-  ['Tomato', 'Beefsteak', 'transplant', 2, 4],
-  ['Tomato', 'Green Zebra', 'indoor_start', 12, 2],
-  ['Tomato', 'Green Zebra', 'transplant', 2, 4],
-  ['Tomato', 'Black Krim', 'indoor_start', 12, 2],
-  ['Tomato', 'Black Krim', 'transplant', 2, 4],
+// Zone 10a planting windows based on UC Master Gardener South Coast guide
+const zone10aWindows = [
+  // === TOMATOES (UC: transplant Apr-Jul 15; indoor start 6-8 weeks before) ===
+  ['Tomato', 'Cherokee Purple', 'indoor_start', 2, 4],
+  ['Tomato', 'Cherokee Purple', 'transplant', 4, 7],
+  ['Tomato', 'Sun Gold', 'indoor_start', 2, 4],
+  ['Tomato', 'Sun Gold', 'transplant', 4, 7],
+  ['Tomato', 'Brandywine', 'indoor_start', 2, 4],
+  ['Tomato', 'Brandywine', 'transplant', 4, 7],
+  ['Tomato', 'Roma', 'indoor_start', 2, 4],
+  ['Tomato', 'Roma', 'transplant', 4, 7],
+  ['Tomato', 'Early Girl', 'indoor_start', 2, 4],
+  ['Tomato', 'Early Girl', 'transplant', 4, 7],
+  ['Tomato', 'San Marzano', 'indoor_start', 2, 4],
+  ['Tomato', 'San Marzano', 'transplant', 4, 7],
+  ['Tomato', 'Cherry (Sweet 100)', 'indoor_start', 2, 4],
+  ['Tomato', 'Cherry (Sweet 100)', 'transplant', 4, 7],
+  ['Tomato', 'Beefsteak', 'indoor_start', 2, 4],
+  ['Tomato', 'Beefsteak', 'transplant', 4, 7],
+  ['Tomato', 'Green Zebra', 'indoor_start', 2, 4],
+  ['Tomato', 'Green Zebra', 'transplant', 4, 7],
+  ['Tomato', 'Black Krim', 'indoor_start', 2, 4],
+  ['Tomato', 'Black Krim', 'transplant', 4, 7],
 
-  // === PEPPERS (indoor start Dec-Feb, transplant Mar-Apr) ===
-  ['Pepper', 'California Wonder', 'indoor_start', 12, 2],
-  ['Pepper', 'California Wonder', 'transplant', 3, 4],
-  ['Pepper', 'Jalapeño', 'indoor_start', 12, 2],
-  ['Pepper', 'Jalapeño', 'transplant', 3, 4],
-  ['Pepper', 'Serrano', 'indoor_start', 12, 2],
-  ['Pepper', 'Serrano', 'transplant', 3, 4],
-  ['Pepper', 'Poblano', 'indoor_start', 12, 2],
-  ['Pepper', 'Poblano', 'transplant', 3, 4],
-  ['Pepper', 'Anaheim', 'indoor_start', 12, 2],
-  ['Pepper', 'Anaheim', 'transplant', 3, 4],
-  ['Pepper', 'Habanero', 'indoor_start', 12, 1],
-  ['Pepper', 'Habanero', 'transplant', 3, 5],
-  ['Pepper', 'Bell (Red)', 'indoor_start', 12, 2],
-  ['Pepper', 'Bell (Red)', 'transplant', 3, 4],
-  ['Pepper', 'Banana', 'indoor_start', 12, 2],
-  ['Pepper', 'Banana', 'transplant', 3, 4],
-  ['Pepper', 'Shishito', 'indoor_start', 12, 2],
-  ['Pepper', 'Shishito', 'transplant', 3, 4],
-  ['Pepper', 'Padron', 'indoor_start', 12, 2],
-  ['Pepper', 'Padron', 'transplant', 3, 4],
+  // === PEPPERS (UC: transplant Apr-May; indoor start 8-10 weeks before) ===
+  ['Pepper', 'California Wonder', 'indoor_start', 1, 3],
+  ['Pepper', 'California Wonder', 'transplant', 4, 5],
+  ['Pepper', 'Jalapeño', 'indoor_start', 1, 3],
+  ['Pepper', 'Jalapeño', 'transplant', 4, 5],
+  ['Pepper', 'Serrano', 'indoor_start', 1, 3],
+  ['Pepper', 'Serrano', 'transplant', 4, 5],
+  ['Pepper', 'Poblano', 'indoor_start', 1, 3],
+  ['Pepper', 'Poblano', 'transplant', 4, 5],
+  ['Pepper', 'Anaheim', 'indoor_start', 1, 3],
+  ['Pepper', 'Anaheim', 'transplant', 4, 5],
+  ['Pepper', 'Habanero', 'indoor_start', 1, 3],
+  ['Pepper', 'Habanero', 'transplant', 4, 6],
+  ['Pepper', 'Bell (Red)', 'indoor_start', 1, 3],
+  ['Pepper', 'Bell (Red)', 'transplant', 4, 5],
+  ['Pepper', 'Banana', 'indoor_start', 1, 3],
+  ['Pepper', 'Banana', 'transplant', 4, 5],
+  ['Pepper', 'Shishito', 'indoor_start', 1, 3],
+  ['Pepper', 'Shishito', 'transplant', 4, 5],
+  ['Pepper', 'Padron', 'indoor_start', 1, 3],
+  ['Pepper', 'Padron', 'transplant', 4, 5],
 
-  // === SQUASH (warm season, direct sow Mar-Jul) ===
-  ['Zucchini', 'Black Beauty', 'direct_sow', 3, 7],
-  ['Zucchini', 'Costata Romanesco', 'direct_sow', 3, 7],
-  ['Summer Squash', 'Yellow Crookneck', 'direct_sow', 3, 7],
-  ['Summer Squash', 'Pattypan', 'direct_sow', 3, 7],
-  ['Winter Squash', 'Butternut', 'direct_sow', 3, 6],
-  ['Winter Squash', 'Acorn', 'direct_sow', 3, 6],
-  ['Winter Squash', 'Delicata', 'direct_sow', 3, 6],
-  ['Winter Squash', 'Spaghetti', 'direct_sow', 3, 6],
-  ['Pumpkin', 'Sugar Pie', 'direct_sow', 4, 6],
-  ['Pumpkin', 'Jack O Lantern', 'direct_sow', 4, 6],
-  ['Cucumber', 'Marketmore', 'direct_sow', 3, 8],
-  ['Cucumber', 'Lemon', 'direct_sow', 3, 8],
-  ['Cucumber', 'Armenian', 'direct_sow', 3, 8],
-  ['Cucumber', 'Persian', 'direct_sow', 3, 8],
-  ['Melon', 'Cantaloupe', 'direct_sow', 3, 6],
-  ['Melon', 'Honeydew', 'direct_sow', 3, 6],
-  ['Watermelon', 'Sugar Baby', 'direct_sow', 3, 6],
-  ['Watermelon', 'Crimson Sweet', 'direct_sow', 3, 6],
+  // === SQUASH (UC: direct sow Apr-Jun) ===
+  ['Zucchini', 'Black Beauty', 'direct_sow', 4, 6],
+  ['Zucchini', 'Costata Romanesco', 'direct_sow', 4, 6],
+  ['Summer Squash', 'Yellow Crookneck', 'direct_sow', 4, 6],
+  ['Summer Squash', 'Pattypan', 'direct_sow', 4, 6],
+  ['Winter Squash', 'Butternut', 'direct_sow', 4, 6],
+  ['Winter Squash', 'Acorn', 'direct_sow', 4, 6],
+  ['Winter Squash', 'Delicata', 'direct_sow', 4, 6],
+  ['Winter Squash', 'Spaghetti', 'direct_sow', 4, 6],
+  ['Pumpkin', 'Sugar Pie', 'direct_sow', 5, 6],
+  ['Pumpkin', 'Jack O Lantern', 'direct_sow', 5, 6],
+  // === CUCUMBERS (UC: direct sow Apr-Jun) ===
+  ['Cucumber', 'Marketmore', 'direct_sow', 4, 6],
+  ['Cucumber', 'Lemon', 'direct_sow', 4, 6],
+  ['Cucumber', 'Armenian', 'direct_sow', 4, 6],
+  ['Cucumber', 'Persian', 'direct_sow', 4, 6],
+  // === MELONS (UC: direct sow Apr-May) ===
+  ['Melon', 'Cantaloupe', 'direct_sow', 4, 5],
+  ['Melon', 'Honeydew', 'direct_sow', 4, 5],
+  ['Watermelon', 'Sugar Baby', 'direct_sow', 4, 6],
+  ['Watermelon', 'Crimson Sweet', 'direct_sow', 4, 6],
 
-  // === LEAFY GREENS (cool season, fall/winter/spring) ===
-  ['Lettuce', 'Butterhead', 'direct_sow', 9, 3],
-  ['Lettuce', 'Romaine', 'direct_sow', 9, 3],
-  ['Lettuce', 'Red Leaf', 'direct_sow', 9, 3],
-  ['Lettuce', 'Oak Leaf', 'direct_sow', 9, 3],
-  ['Lettuce', 'Iceberg', 'direct_sow', 10, 2],
-  ['Spinach', 'Bloomsdale', 'direct_sow', 10, 2],
-  ['Spinach', 'Baby Leaf', 'direct_sow', 10, 2],
-  ['Arugula', null, 'direct_sow', 9, 4],
-  ['Kale', 'Lacinato', 'direct_sow', 9, 3],
-  ['Kale', 'Red Russian', 'direct_sow', 9, 3],
-  ['Kale', 'Curly', 'direct_sow', 9, 3],
-  ['Swiss Chard', 'Rainbow', 'direct_sow', 9, 4],
-  ['Swiss Chard', 'Fordhook Giant', 'direct_sow', 9, 4],
-  ['Collard Greens', null, 'direct_sow', 9, 3],
-  ['Mustard Greens', null, 'direct_sow', 9, 3],
-  ['Bok Choy', null, 'direct_sow', 9, 3],
-  ['Mache', null, 'direct_sow', 10, 2],
-  ['Endive', 'Frisee', 'direct_sow', 9, 2],
-  ['Radicchio', null, 'direct_sow', 9, 11],
+  // === LEAFY GREENS (UC: lettuce Aug-Apr, spinach Aug-Mar) ===
+  ['Lettuce', 'Butterhead', 'direct_sow', 8, 4],
+  ['Lettuce', 'Romaine', 'direct_sow', 8, 4],
+  ['Lettuce', 'Red Leaf', 'direct_sow', 8, 4],
+  ['Lettuce', 'Oak Leaf', 'direct_sow', 8, 4],
+  ['Lettuce', 'Iceberg', 'direct_sow', 8, 4],
+  ['Spinach', 'Bloomsdale', 'direct_sow', 8, 3],
+  ['Spinach', 'Baby Leaf', 'direct_sow', 8, 3],
+  ['Arugula', null, 'direct_sow', 8, 4],
+  ['Kale', 'Lacinato', 'direct_sow', 8, 10],
+  ['Kale', 'Red Russian', 'direct_sow', 8, 10],
+  ['Kale', 'Curly', 'direct_sow', 8, 10],
+  ['Swiss Chard', 'Rainbow', 'direct_sow', 8, 4],
+  ['Swiss Chard', 'Fordhook Giant', 'direct_sow', 8, 4],
+  ['Collard Greens', null, 'direct_sow', 8, 3],
+  ['Mustard Greens', null, 'direct_sow', 8, 3],
+  ['Bok Choy', null, 'direct_sow', 8, 3],
+  ['Mache', null, 'direct_sow', 9, 2],
+  ['Endive', 'Frisee', 'direct_sow', 8, 2],
+  ['Radicchio', null, 'direct_sow', 8, 11],
 
-  // === BRASSICAS (cool season, transplant or direct sow) ===
-  ['Broccoli', 'Calabrese', 'indoor_start', 8, 10],
+  // === BRASSICAS (UC: broccoli start Jun-Jul & Jan-Feb, transplant Sep-Dec; cabbage Aug-Feb) ===
+  ['Broccoli', 'Calabrese', 'indoor_start', 6, 7],
   ['Broccoli', 'Calabrese', 'transplant', 9, 12],
-  ['Broccoli', 'Di Cicco', 'indoor_start', 8, 10],
+  ['Broccoli', 'Di Cicco', 'indoor_start', 6, 7],
   ['Broccoli', 'Di Cicco', 'transplant', 9, 12],
-  ['Cauliflower', 'Snowball', 'indoor_start', 8, 10],
+  ['Cauliflower', 'Snowball', 'indoor_start', 7, 10],
   ['Cauliflower', 'Snowball', 'transplant', 9, 12],
-  ['Cauliflower', 'Purple', 'indoor_start', 8, 10],
+  ['Cauliflower', 'Purple', 'indoor_start', 7, 10],
   ['Cauliflower', 'Purple', 'transplant', 9, 12],
-  ['Cabbage', 'Green', 'indoor_start', 8, 10],
-  ['Cabbage', 'Green', 'transplant', 9, 12],
-  ['Cabbage', 'Red', 'indoor_start', 8, 10],
-  ['Cabbage', 'Red', 'transplant', 9, 12],
-  ['Cabbage', 'Napa', 'direct_sow', 9, 11],
-  ['Brussels Sprouts', null, 'indoor_start', 7, 9],
-  ['Brussels Sprouts', null, 'transplant', 9, 11],
-  ['Kohlrabi', null, 'direct_sow', 9, 3],
+  ['Cabbage', 'Green', 'indoor_start', 6, 12],
+  ['Cabbage', 'Green', 'transplant', 8, 2],
+  ['Cabbage', 'Red', 'indoor_start', 6, 12],
+  ['Cabbage', 'Red', 'transplant', 8, 2],
+  ['Cabbage', 'Napa', 'direct_sow', 8, 2],
+  ['Brussels Sprouts', null, 'indoor_start', 6, 8],
+  ['Brussels Sprouts', null, 'transplant', 8, 11],
+  ['Kohlrabi', null, 'direct_sow', 1, 9],
 
-  // === ROOT VEGETABLES ===
-  ['Carrot', 'Nantes', 'direct_sow', 9, 3],
-  ['Carrot', 'Chantenay', 'direct_sow', 9, 3],
-  ['Carrot', 'Purple Haze', 'direct_sow', 9, 3],
-  ['Beet', 'Detroit Dark Red', 'direct_sow', 9, 3],
-  ['Beet', 'Chioggia', 'direct_sow', 9, 3],
-  ['Beet', 'Golden', 'direct_sow', 9, 3],
+  // === ROOT VEGETABLES (UC: carrots Jan-Sep, beets Jan-Sep, potatoes Feb-May & Jun-Aug) ===
+  ['Carrot', 'Nantes', 'direct_sow', 1, 9],
+  ['Carrot', 'Chantenay', 'direct_sow', 1, 9],
+  ['Carrot', 'Purple Haze', 'direct_sow', 1, 9],
+  ['Beet', 'Detroit Dark Red', 'direct_sow', 1, 9],
+  ['Beet', 'Chioggia', 'direct_sow', 1, 9],
+  ['Beet', 'Golden', 'direct_sow', 1, 9],
   ['Radish', 'Cherry Belle', 'direct_sow', 9, 4],
   ['Radish', 'French Breakfast', 'direct_sow', 9, 4],
   ['Radish', 'Watermelon', 'direct_sow', 9, 12],
   ['Radish', 'Daikon', 'direct_sow', 9, 12],
   ['Turnip', 'Purple Top', 'direct_sow', 9, 2],
   ['Turnip', 'Hakurei', 'direct_sow', 9, 3],
-  ['Parsnip', null, 'direct_sow', 10, 1],
-  ['Rutabaga', null, 'direct_sow', 9, 11],
-  ['Sweet Potato', 'Beauregard', 'transplant', 3, 6],
-  ['Sweet Potato', 'Japanese', 'transplant', 3, 6],
-  ['Potato', 'Yukon Gold', 'direct_sow', 1, 3],
-  ['Potato', 'Red', 'direct_sow', 1, 3],
-  ['Potato', 'Fingerling', 'direct_sow', 1, 3],
+  ['Parsnip', null, 'direct_sow', 3, 7],
+  ['Rutabaga', null, 'direct_sow', 8, 11],
+  ['Sweet Potato', 'Beauregard', 'transplant', 4, 5],
+  ['Sweet Potato', 'Japanese', 'transplant', 4, 5],
+  ['Potato', 'Yukon Gold', 'direct_sow', 2, 8],
+  ['Potato', 'Red', 'direct_sow', 2, 8],
+  ['Potato', 'Fingerling', 'direct_sow', 2, 8],
 
-  // === ALLIUMS ===
-  ['Onion', 'Yellow', 'transplant', 10, 1],
-  ['Onion', 'Red', 'transplant', 10, 1],
-  ['Onion', 'White', 'transplant', 10, 1],
-  ['Green Onion', null, 'direct_sow', 9, 4],
+  // === ALLIUMS (UC: onions Feb-Oct, green onions all year, garlic Oct-Dec) ===
+  ['Onion', 'Yellow', 'transplant', 2, 10],
+  ['Onion', 'Red', 'transplant', 2, 10],
+  ['Onion', 'White', 'transplant', 2, 10],
+  ['Green Onion', null, 'direct_sow', 1, 12],
   ['Shallot', null, 'direct_sow', 10, 12],
-  ['Leek', null, 'indoor_start', 9, 11],
-  ['Leek', null, 'transplant', 11, 1],
+  ['Leek', null, 'indoor_start', 8, 11],
+  ['Leek', null, 'transplant', 10, 1],
   ['Garlic', 'Softneck', 'direct_sow', 10, 12],
   ['Garlic', 'Hardneck', 'direct_sow', 10, 12],
-  ['Chives', null, 'direct_sow', 9, 4],
+  ['Chives', null, 'direct_sow', 1, 12],
 
-  // === LEGUMES ===
-  ['Beans', 'Blue Lake', 'direct_sow', 3, 9],
-  ['Beans', 'Kentucky Wonder', 'direct_sow', 3, 9],
-  ['Beans', 'Dragon Tongue', 'direct_sow', 3, 9],
-  ['Beans', 'Scarlet Runner', 'direct_sow', 3, 9],
+  // === LEGUMES (UC: beans Mar-Aug) ===
+  ['Beans', 'Blue Lake', 'direct_sow', 3, 8],
+  ['Beans', 'Kentucky Wonder', 'direct_sow', 3, 8],
+  ['Beans', 'Dragon Tongue', 'direct_sow', 3, 8],
+  ['Beans', 'Scarlet Runner', 'direct_sow', 3, 8],
   ['Beans', 'Black', 'direct_sow', 4, 7],
   ['Peas', 'Sugar Snap', 'direct_sow', 10, 2],
   ['Peas', 'Snow Pea', 'direct_sow', 10, 2],
   ['Peas', 'Shelling', 'direct_sow', 10, 2],
   ['Edamame', null, 'direct_sow', 4, 7],
 
-  // === EGGPLANT & NIGHTSHADES ===
-  ['Eggplant', 'Black Beauty', 'indoor_start', 12, 2],
-  ['Eggplant', 'Black Beauty', 'transplant', 3, 5],
-  ['Eggplant', 'Japanese', 'indoor_start', 12, 2],
-  ['Eggplant', 'Japanese', 'transplant', 3, 5],
-  ['Eggplant', 'Rosa Bianca', 'indoor_start', 12, 2],
-  ['Eggplant', 'Rosa Bianca', 'transplant', 3, 5],
-  ['Tomatillo', null, 'indoor_start', 12, 2],
-  ['Tomatillo', null, 'transplant', 3, 5],
-  ['Ground Cherry', null, 'indoor_start', 12, 2],
-  ['Ground Cherry', null, 'transplant', 3, 5],
+  // === EGGPLANT & NIGHTSHADES (UC: transplant Apr-May) ===
+  ['Eggplant', 'Black Beauty', 'indoor_start', 1, 3],
+  ['Eggplant', 'Black Beauty', 'transplant', 4, 5],
+  ['Eggplant', 'Japanese', 'indoor_start', 1, 3],
+  ['Eggplant', 'Japanese', 'transplant', 4, 5],
+  ['Eggplant', 'Rosa Bianca', 'indoor_start', 1, 3],
+  ['Eggplant', 'Rosa Bianca', 'transplant', 4, 5],
+  ['Tomatillo', null, 'indoor_start', 1, 3],
+  ['Tomatillo', null, 'transplant', 4, 5],
+  ['Ground Cherry', null, 'indoor_start', 1, 3],
+  ['Ground Cherry', null, 'transplant', 4, 5],
 
-  // === OTHER VEGETABLES ===
+  // === OTHER VEGETABLES (UC: corn Mar-Jul, okra Apr-May) ===
   ['Corn', 'Golden Bantam', 'direct_sow', 3, 7],
   ['Corn', 'Silver Queen', 'direct_sow', 3, 7],
-  ['Okra', 'Clemson Spineless', 'direct_sow', 4, 7],
+  ['Okra', 'Clemson Spineless', 'direct_sow', 4, 5],
   ['Artichoke', 'Green Globe', 'transplant', 9, 11],
   ['Asparagus', 'Mary Washington', 'transplant', 1, 3],
   ['Celery', null, 'indoor_start', 8, 10],
@@ -576,30 +638,51 @@ const zone10bWindows = [
   ['Lemon Balm', null, 'transplant', 3, 10],
   ['Borage', null, 'direct_sow', 9, 4],
 
-  // === FLOWERS ===
-  ['Zinnia', 'California Giant', 'direct_sow', 3, 8],
-  ['Zinnia', 'Dwarf', 'direct_sow', 3, 8],
-  ['Marigold', 'French', 'direct_sow', 3, 9],
-  ['Marigold', 'African', 'direct_sow', 3, 9],
-  ['Sunflower', 'Mammoth', 'direct_sow', 3, 7],
-  ['Sunflower', 'Teddy Bear', 'direct_sow', 3, 7],
-  ['Cosmos', 'Sensation', 'direct_sow', 3, 8],
+  // === FLOWERS (per UC Santa Clara cut flower chart) ===
+  ['Zinnia', 'California Giant', 'direct_sow', 4, 6],
+  ['Zinnia', 'Dwarf', 'direct_sow', 4, 6],
+  ['Marigold', 'French', 'direct_sow', 4, 6],
+  ['Marigold', 'African', 'direct_sow', 4, 6],
+  ['Sunflower', 'Mammoth', 'direct_sow', 5, 9],
+  ['Sunflower', 'Teddy Bear', 'direct_sow', 5, 9],
+  ['Cosmos', 'Sensation', 'direct_sow', 4, 6],
   ['Nasturtium', null, 'direct_sow', 3, 10],
-  ['Sweet Pea', null, 'direct_sow', 10, 1],
-  ['Snapdragon', null, 'indoor_start', 9, 11],
-  ['Snapdragon', null, 'transplant', 10, 1],
+  ['Sweet Pea', null, 'direct_sow', 8, 3],
+  ['Snapdragon', null, 'indoor_start', 2, 8],
+  ['Snapdragon', null, 'transplant', 4, 11],
   ['Calendula', null, 'direct_sow', 9, 3],
   ['Alyssum', null, 'direct_sow', 9, 4],
-  ['Celosia', null, 'direct_sow', 4, 7],
-  ['Dahlia', null, 'transplant', 3, 5],
+  ['Celosia', null, 'indoor_start', 2, 3],
+  ['Celosia', null, 'transplant', 5, 6],
+  ['Dahlia', null, 'transplant', 4, 5],
   ['Larkspur', null, 'direct_sow', 10, 12],
   ['Bachelor Button', null, 'direct_sow', 9, 3],
   ['California Poppy', null, 'direct_sow', 10, 2],
-  ['Petunia', null, 'transplant', 3, 5],
-  ['Salvia', null, 'transplant', 3, 5],
-  ['Verbena', null, 'transplant', 3, 5],
-  ['Echinacea', null, 'transplant', 3, 5],
-  ['Black-Eyed Susan', null, 'direct_sow', 3, 5],
+  ['Petunia', null, 'transplant', 4, 5],
+  ['Salvia', null, 'transplant', 4, 5],
+  ['Verbena', null, 'transplant', 4, 5],
+  ['Echinacea', null, 'transplant', 4, 5],
+  ['Black-Eyed Susan', null, 'direct_sow', 4, 5],
+
+  // === BULB FLOWERS (zone 10b planting times per UC Master Gardeners) ===
+  ['Gladiolus', 'Standard Mix', 'direct_sow', 2, 7],
+  ['Gladiolus', 'Nanus (Dwarf)', 'direct_sow', 2, 7],
+  ['Tulip', 'Darwin Hybrid', 'direct_sow', 11, 12],
+  ['Tulip', 'Parrot', 'direct_sow', 11, 12],
+  ['Daffodil', 'King Alfred', 'direct_sow', 9, 12],
+  ['Daffodil', 'Tête-à-Tête', 'direct_sow', 9, 12],
+  ['Iris', 'Dutch', 'direct_sow', 9, 12],
+  ['Iris', 'Bearded', 'transplant', 8, 10],
+  ['Ranunculus', null, 'direct_sow', 9, 12],
+  ['Anemone', 'De Caen', 'direct_sow', 9, 12],
+  ['Freesia', null, 'direct_sow', 9, 11],
+  ['Lily', 'Asiatic', 'direct_sow', 9, 3],
+  ['Lily', 'Oriental', 'direct_sow', 9, 3],
+  ['Crocosmia', 'Lucifer', 'direct_sow', 2, 5],
+  ['Calla Lily', null, 'direct_sow', 10, 4],
+  ['Hyacinth', null, 'direct_sow', 11, 12],
+  ['Allium', 'Ornamental', 'direct_sow', 9, 11],
+  ['Amaryllis', null, 'indoor_start', 10, 2],
 
   // === FRUITS ===
   ['Strawberry', 'Everbearing', 'transplant', 10, 2],
@@ -629,8 +712,8 @@ const insertWindows = db.transaction((windows) => {
   }
 });
 
-insertWindows(zone10bWindows);
-console.log('Seeded planting windows for zone 10b');
+insertWindows(zone10aWindows);
+console.log('Seeded planting windows for zone 10a (LA County/South Coast)');
 
 // Seed companion planting relationships
 const seedCompanion = db.prepare(`
@@ -891,6 +974,35 @@ const companionRelationships = [
   ['Corn', 'Peas', 'good', 'Peas fix nitrogen'],
   ['Corn', 'Potato', 'good', 'Good companions'],
   ['Corn', 'Tomato', 'bad', 'Both attract corn earworm/tomato hornworm'],
+
+  // === BULB FLOWER COMPANIONS ===
+  ['Gladiolus', 'Marigold', 'good', 'Marigolds repel thrips that attack gladiolus'],
+  ['Gladiolus', 'Zinnia', 'good', 'Good cutting garden companions'],
+  ['Gladiolus', 'Dahlia', 'good', 'Similar growing requirements and bloom times'],
+  ['Gladiolus', 'Beans', 'bad', 'Beans and gladiolus inhibit each other'],
+  ['Gladiolus', 'Peas', 'bad', 'Peas and gladiolus inhibit each other'],
+  ['Daffodil', 'Tulip', 'good', 'Classic spring bulb pairing'],
+  ['Daffodil', 'Hyacinth', 'good', 'Spring bulb companions'],
+  ['Daffodil', 'Apple', 'good', 'Daffodils deter rodents from fruit trees'],
+  ['Daffodil', 'Strawberry', 'good', 'Daffodils deter rodents'],
+  ['Tulip', 'Hyacinth', 'good', 'Spring bulb companions with similar timing'],
+  ['Tulip', 'Pansy', 'good', 'Classic spring pairing'],
+  ['Iris', 'Rose', 'good', 'Classic cottage garden pairing'],
+  ['Iris', 'Lavender', 'good', 'Both thrive in similar conditions'],
+  ['Lily', 'Rose', 'good', 'Classic garden companions'],
+  ['Lily', 'Lavender', 'good', 'Lavender deters lily pests'],
+  ['Lily', 'Marigold', 'good', 'Marigolds repel lily pests'],
+  ['Allium', 'Rose', 'good', 'Alliums repel aphids from roses'],
+  ['Allium', 'Tomato', 'good', 'Alliums repel pests'],
+  ['Allium', 'Carrot', 'good', 'Alliums repel carrot fly'],
+  ['Allium', 'Pepper', 'good', 'Alliums repel aphids'],
+  ['Ranunculus', 'Anemone', 'good', 'Same planting and care requirements'],
+  ['Ranunculus', 'Sweet Pea', 'good', 'Cool season cut flower companions'],
+  ['Anemone', 'Ranunculus', 'good', 'Perfect cool season companions'],
+  ['Freesia', 'Ranunculus', 'good', 'Cool season bulb companions'],
+  ['Crocosmia', 'Dahlia', 'good', 'Summer color companions'],
+  ['Calla Lily', 'Fern', 'good', 'Both enjoy partial shade and moisture'],
+  ['Amaryllis', 'Lily', 'good', 'Similar care requirements'],
 ];
 
 const insertCompanions = db.transaction((companions) => {

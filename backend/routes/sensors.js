@@ -7,36 +7,68 @@ const db = require('../models/db');
 router.post('/ecowitt', (req, res) => {
   try {
     const data = req.body;
-    
+
     // Log raw data for debugging (remove in production)
     console.log('Ecowitt data received:', JSON.stringify(data, null, 2));
-    
-    // Ecowitt sends soil moisture as soilmoisture1, soilmoisture2, etc.
-    // Battery status as soilbatt1, soilbatt2, etc.
-    const insert = db.prepare(`
-      INSERT INTO sensor_readings (sensor_id, sensor_name, moisture_percent, battery_status)
-      VALUES (?, ?, ?, ?)
+
+    // Ecowitt sends:
+    // - Soil moisture as soilmoisture1, soilmoisture2, etc. (battery: soilbatt1, etc.)
+    // - Soil temperature as tf_ch1, tf_ch2, etc. (battery: tf_batt1, etc.)
+    //   or sometimes as soiltemp1f (Fahrenheit), soiltemp1c (Celsius)
+    const insertMoisture = db.prepare(`
+      INSERT INTO sensor_readings (sensor_id, sensor_name, sensor_type, moisture_percent, battery_status)
+      VALUES (?, ?, 'moisture', ?, ?)
     `);
-    
+
+    const insertTemperature = db.prepare(`
+      INSERT INTO sensor_readings (sensor_id, sensor_name, sensor_type, temperature_f, battery_status)
+      VALUES (?, ?, 'temperature', ?, ?)
+    `);
+
     const insertMany = db.transaction(() => {
       // Check for up to 8 soil moisture channels
       for (let i = 1; i <= 8; i++) {
         const moistureKey = `soilmoisture${i}`;
         const batteryKey = `soilbatt${i}`;
-        
+
         if (data[moistureKey] !== undefined) {
-          insert.run(
-            `soil_${i}`,
-            `Soil Sensor ${i}`,
+          insertMoisture.run(
+            `soil_moisture_${i}`,
+            `Soil Moisture ${i}`,
             parseFloat(data[moistureKey]),
             data[batteryKey] || 'unknown'
           );
         }
       }
+
+      // Check for up to 8 soil temperature channels
+      // Ecowitt uses tf_ch1 (temp F channel) or soiltemp1f format
+      for (let i = 1; i <= 8; i++) {
+        // Try tf_ch format first (common for WN34 sensors)
+        let tempKey = `tf_ch${i}`;
+        let batteryKey = `tf_batt${i}`;
+        let tempValue = data[tempKey];
+
+        // Try soiltemp format if tf_ch not found
+        if (tempValue === undefined) {
+          tempKey = `soiltemp${i}f`;
+          batteryKey = `soiltempbatt${i}`;
+          tempValue = data[tempKey];
+        }
+
+        if (tempValue !== undefined) {
+          insertTemperature.run(
+            `soil_temp_${i}`,
+            `Soil Temp ${i}`,
+            parseFloat(tempValue),
+            data[batteryKey] || 'unknown'
+          );
+        }
+      }
     });
-    
+
     insertMany();
-    
+
     res.status(200).send('OK');
   } catch (error) {
     console.error('Error processing Ecowitt data:', error);
@@ -48,19 +80,21 @@ router.post('/ecowitt', (req, res) => {
 router.get('/latest', (req, res) => {
   try {
     const readings = db.prepare(`
-      SELECT 
+      SELECT
         sensor_id,
         sensor_name,
+        sensor_type,
         moisture_percent,
+        temperature_f,
         battery_status,
         timestamp
       FROM sensor_readings
       WHERE id IN (
         SELECT MAX(id) FROM sensor_readings GROUP BY sensor_id
       )
-      ORDER BY sensor_id
+      ORDER BY sensor_type, sensor_id
     `).all();
-    
+
     res.json(readings);
   } catch (error) {
     console.error('Error fetching latest readings:', error);
@@ -73,17 +107,19 @@ router.get('/history/:sensorId', (req, res) => {
   try {
     const { sensorId } = req.params;
     const hours = parseInt(req.query.hours) || 24;
-    
+
     const readings = db.prepare(`
-      SELECT 
+      SELECT
+        sensor_type,
         moisture_percent,
+        temperature_f,
         timestamp
       FROM sensor_readings
       WHERE sensor_id = ?
         AND timestamp > datetime('now', '-${hours} hours')
       ORDER BY timestamp ASC
     `).all(sensorId);
-    
+
     res.json(readings);
   } catch (error) {
     console.error('Error fetching sensor history:', error);

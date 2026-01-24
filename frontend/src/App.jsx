@@ -82,7 +82,7 @@ function App() {
       <div className="dashboard">
         <div className="card sensors-grid">
           <div className="card-header">
-            <h2 className="card-title">Soil Moisture Sensors</h2>
+            <h2 className="card-title">Soil Sensors</h2>
           </div>
           <SensorCards key={`sensors-${refreshKey}`} />
         </div>
@@ -103,7 +103,7 @@ function App() {
 
         <div className="card planting-schedule">
           <div className="card-header">
-            <h2 className="card-title">Plants (Zone 10b)</h2>
+            <h2 className="card-title">Plants (Zone 10a)</h2>
           </div>
           <PlantingSchedule
             key={`planting-${refreshKey}`}

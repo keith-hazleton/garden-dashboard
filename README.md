@@ -1,17 +1,18 @@
 # Garden Dashboard
 
-A local garden monitoring dashboard for Raspberry Pi with Ecowitt soil moisture sensors and Open-Meteo weather integration.
+A local garden monitoring dashboard for Raspberry Pi with Ecowitt soil sensors and Open-Meteo weather integration.
 
 ## Features
 
 - **Soil Moisture Monitoring**: Real-time readings from Ecowitt WH51 sensors via GW3000 gateway
-- **Historical Charts**: 24-hour moisture trends with interactive charts
+- **Soil Temperature Monitoring**: Support for WN34 and similar soil/water temperature sensors
+- **Historical Charts**: 24-hour sensor trends with interactive charts
 - **Weather Integration**: Current conditions and 7-day forecast from Open-Meteo (no API key required)
 - **Smart Watering Advice**: Recommendations combining soil moisture data + weather forecast
-- **Planting Schedule**: Zone 10b-specific planting windows with 180 plants, collapsible categories
+- **Planting Schedule**: Zone 10a-specific planting windows with 198 plants (including 18 bulb varieties), collapsible categories
 - **Planting Calendar**: Star plants to track them, view planting windows in agenda or timeline view
 - **Bed Mapping**: Visual grid layout for raised beds with drag-and-drop plant placement
-- **Companion Planting**: 223 plant relationships - see good/bad companions when planning beds
+- **Companion Planting**: 250 plant relationships - see good/bad companions when planning beds
 - **Task Manager**: Garden maintenance tasks with recurring reminders
 - **Light/Dark Theme**: Toggle between light and dark mode (preference saved)
 
@@ -19,7 +20,7 @@ A local garden monitoring dashboard for Raspberry Pi with Ecowitt soil moisture 
 
 - **Backend**: Node.js + Express + better-sqlite3
 - **Frontend**: React + Vite + Recharts
-- **Hardware**: Ecowitt GW3000 gateway + WH51 soil moisture sensors
+- **Hardware**: Ecowitt GW3000 gateway + WH51 soil moisture sensors + WN34 soil temperature sensors
 - **Deployment**: Raspberry Pi 5 on local network
 
 ## Quick Start (Development)
@@ -43,7 +44,7 @@ cd backend
 npm run init-db
 ```
 
-This creates the SQLite database and seeds it with common zone 10b plants and planting windows.
+This creates the SQLite database and seeds it with common zone 10a plants and planting windows.
 
 ### 3. Configure Location
 
@@ -199,6 +200,22 @@ In the Ecowitt app or gateway web interface:
 
 The dashboard will start displaying sensor data as soon as the gateway begins posting.
 
+#### Supported Sensors
+
+The dashboard automatically detects and displays data from these Ecowitt sensor types:
+
+| Sensor Type | Model Examples | Data Keys |
+|-------------|----------------|-----------|
+| Soil Moisture | WH51 | `soilmoisture1`-`soilmoisture8`, `soilbatt1`-`soilbatt8` |
+| Soil/Water Temperature | WN34, WN30 | `tf_ch1`-`tf_ch8`, `tf_batt1`-`tf_batt8` |
+
+Temperature sensors display with color-coded status:
+- **Cold** (<40°F): Too cold for most plants
+- **Cool** (40-50°F): Good for cool season crops
+- **Ideal** (50-75°F): Ideal growing temperature
+- **Warm** (75-85°F): Good for warm season crops
+- **Hot** (>85°F): May stress plants
+
 ### Step 7: Set a Static IP (Recommended)
 
 To ensure your Pi always has the same IP address:
@@ -267,16 +284,16 @@ cp ~/garden-dashboard/backend/data/garden.db ~/garden-backup-$(date +%Y%m%d).db
 ### Sensors
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/sensors/ecowitt` | POST | Webhook for Ecowitt gateway |
+| `/api/sensors/ecowitt` | POST | Webhook for Ecowitt gateway (moisture + temperature) |
 | `/api/sensors` | GET | List all sensors |
-| `/api/sensors/latest` | GET | Latest readings for all sensors |
+| `/api/sensors/latest` | GET | Latest readings for all sensors (includes sensor_type, moisture_percent, temperature_f) |
 | `/api/sensors/history/:sensorId` | GET | Historical readings (?hours=24) |
 
 ### Plants
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/plants` | GET | List plants (?category=vegetable&search=tomato) |
-| `/api/plants/plant-now` | GET | Plants to plant now (zone 10b) |
+| `/api/plants/plant-now` | GET | Plants to plant now (zone 10a) |
 | `/api/plants/watched/list` | GET | Get all starred/watched plants |
 | `/api/plants/calendar/year` | GET | Calendar data for watched plants |
 | `/api/plants/:id` | GET | Single plant with planting windows |
@@ -360,6 +377,31 @@ garden-dashboard/
 │   └── package.json
 └── README.md
 ```
+
+## Data Sources
+
+Plant data, planting windows, and companion relationships in this project are sourced from and cross-checked against:
+
+### UC Master Gardener Program (Primary Sources)
+- [UC Master Gardeners of Los Angeles County](https://ucanr.edu/county/los-angeles-county/gardening-uc-master-gardener-program) - Regional planting guidance
+- [UC Master Gardener Time of Planting Guide](https://ucanr.edu/program/uc-master-gardener-program/time-planting) - South Coast vegetable planting calendar
+- [UC Master Gardeners of Sacramento County - Bulb Planting Schedule](https://ucanr.edu/sites/sacmg/Sacramento_Bulb_Planting_Schedule/) - Bulb flower data
+- [UC Master Gardeners of Santa Clara County - Cut Flower Chart](https://ucanr.edu/site/uc-master-gardeners-santa-clara-county/cut-flower-planting-chart) - Annual/perennial flower data
+- [Spring & Summer Gardening Basics for LA County](https://ucanr.edu/sites/default/files/2011-11/131790.pdf) (PDF)
+- [Fall & Winter Gardening Basics for LA County](https://celosangeles.ucanr.edu/files/131791.pdf) (PDF)
+
+### Additional UC Resources
+- [UC Agriculture and Natural Resources (UC ANR)](https://ucanr.edu/)
+- [UC Davis Fruit & Nut Research Center](https://ucanr.edu/site/fruit-nut-research-information-center/)
+- [California Master Gardener Handbook](https://anrcatalog.ucanr.edu/Items/3382) (reference)
+
+### USDA Resources
+- [USDA Plant Hardiness Zone Map](https://planthardiness.ars.usda.gov/)
+
+### Zone Information
+This database is configured for **USDA Zone 10a** (La Cañada Flintridge, CA area - 1500 ft elevation).
+- Average minimum temperature: 30-35°F
+- Planting windows may need adjustment for different zones
 
 ## License
 

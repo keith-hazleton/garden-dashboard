@@ -16,6 +16,10 @@
   --accent-red: #ef4444;
   --accent-cyan: #06b6d4;
   --border-color: #475569;
+  /* Calendar text colors - light text for dark mode */
+  --calendar-text-purple: #c4b5fd;
+  --calendar-text-green: #86efac;
+  --calendar-text-blue: #93c5fd;
 }
 
 [data-theme="light"] {
@@ -25,6 +29,10 @@
   --text-primary: #1e293b;
   --text-secondary: #64748b;
   --border-color: #cbd5e1;
+  /* Calendar text colors - dark text for light mode (better contrast) */
+  --calendar-text-purple: #6d28d9;
+  --calendar-text-green: #166534;
+  --calendar-text-blue: #1d4ed8;
 }
 
 body {
@@ -142,6 +150,18 @@ header h1 {
 .moisture-value.low { color: var(--accent-yellow); }
 .moisture-value.good { color: var(--accent-green); }
 .moisture-value.saturated { color: var(--accent-blue); }
+
+.temp-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.temp-value.cold { color: var(--accent-cyan); }
+.temp-value.cool { color: var(--accent-blue); }
+.temp-value.ideal { color: var(--accent-green); }
+.temp-value.warm { color: var(--accent-yellow); }
+.temp-value.hot { color: var(--accent-red); }
 
 .moisture-bar {
   height: 6px;
@@ -296,9 +316,9 @@ header h1 {
   background: var(--bg-card);
 }
 
-.window-badge.indoor_start { background: rgba(139, 92, 246, 0.3); color: #a78bfa; }
-.window-badge.transplant { background: rgba(34, 197, 94, 0.3); color: #86efac; }
-.window-badge.direct_sow { background: rgba(59, 130, 246, 0.3); color: #93c5fd; }
+.window-badge.indoor_start { background: rgba(139, 92, 246, 0.3); color: var(--calendar-text-purple); }
+.window-badge.transplant { background: rgba(34, 197, 94, 0.3); color: var(--calendar-text-green); }
+.window-badge.direct_sow { background: rgba(59, 130, 246, 0.3); color: var(--calendar-text-blue); }
 
 /* Planting calendar */
 .planting-calendar {

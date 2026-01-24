@@ -71,7 +71,7 @@ function PlantingSchedule({ onWatchChange }) {
   if (displayPlants.length === 0) {
     return (
       <div className="empty-state">
-        {showAll ? 'No plants in database.' : 'No plants to sow/transplant this month for zone 10b.'}
+        {showAll ? 'No plants in database.' : 'No plants to sow/transplant this month for zone 10a.'}
         <button
           className="btn btn-secondary"
           onClick={() => setShowAll(!showAll)}

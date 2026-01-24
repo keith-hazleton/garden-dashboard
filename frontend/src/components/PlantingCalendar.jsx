@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
+// Colors for different window types - text colors are theme-aware via CSS variables
 const WINDOW_COLORS = {
-  indoor_start: { bg: 'rgba(139, 92, 246, 0.3)', border: '#a78bfa', text: '#c4b5fd' },
-  transplant: { bg: 'rgba(34, 197, 94, 0.3)', border: '#86efac', text: '#86efac' },
-  direct_sow: { bg: 'rgba(59, 130, 246, 0.3)', border: '#93c5fd', text: '#93c5fd' }
+  indoor_start: { bg: 'rgba(139, 92, 246, 0.3)', border: '#a78bfa', textVar: '--calendar-text-purple' },
+  transplant: { bg: 'rgba(34, 197, 94, 0.3)', border: '#86efac', textVar: '--calendar-text-green' },
+  direct_sow: { bg: 'rgba(59, 130, 246, 0.3)', border: '#93c5fd', textVar: '--calendar-text-blue' }
 }
 
 function PlantingCalendar() {
@@ -149,7 +150,7 @@ function PlantingCalendar() {
                     </div>
                     <div style={{
                       fontSize: '0.75rem',
-                      color: colors.text,
+                      color: `var(${colors.textVar})`,
                       display: 'flex',
                       justifyContent: 'space-between',
                       marginTop: '0.25rem'
