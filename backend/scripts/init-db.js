@@ -1047,7 +1047,11 @@ const alertSettings = [
   ['ntfy_topic', 'hazletok-garden-atp7b'],
 
   // Alert cooldown in minutes (don't repeat same alert within this time)
-  ['alert_cooldown_minutes', '60'],
+  ['alert_cooldown_minutes', '240'],
+
+  // Quiet hours (no notifications during this time, 24-hour format)
+  ['quiet_hours_start', '21'],  // 9 PM
+  ['quiet_hours_end', '6'],     // 6 AM
 
   // Threshold profiles (JSON)
   ['profile_cool_season', JSON.stringify({

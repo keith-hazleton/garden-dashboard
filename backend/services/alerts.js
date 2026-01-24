@@ -14,7 +14,7 @@ function getProfile(profileName) {
 
 // Check if we've sent this alert recently (within cooldown period)
 function isInCooldown(sensorId, alertType) {
-  const cooldownMinutes = parseInt(getSetting('alert_cooldown_minutes')) || 60;
+  const cooldownMinutes = parseInt(getSetting('alert_cooldown_minutes')) || 240;
 
   const recent = db.prepare(`
     SELECT id FROM alert_history
@@ -24,6 +24,22 @@ function isInCooldown(sensorId, alertType) {
   `).get(sensorId, alertType);
 
   return !!recent;
+}
+
+// Check if current time is within quiet hours (no notifications)
+function isQuietHours() {
+  const quietStart = parseInt(getSetting('quiet_hours_start')) || 21; // 9 PM
+  const quietEnd = parseInt(getSetting('quiet_hours_end')) || 6;      // 6 AM
+
+  const now = new Date();
+  const hour = now.getHours();
+
+  // Handle overnight quiet hours (e.g., 21:00 to 06:00)
+  if (quietStart > quietEnd) {
+    return hour >= quietStart || hour < quietEnd;
+  }
+  // Handle same-day quiet hours (e.g., 13:00 to 15:00)
+  return hour >= quietStart && hour < quietEnd;
 }
 
 // Record that we sent an alert
@@ -39,6 +55,11 @@ async function sendNtfyNotification(title, message, priority = 'default', tags =
   const enabled = getSetting('ntfy_enabled');
   if (enabled !== 'true') {
     console.log('Alerts disabled, skipping notification');
+    return false;
+  }
+
+  if (isQuietHours()) {
+    console.log('Quiet hours active, skipping notification');
     return false;
   }
 
