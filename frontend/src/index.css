@@ -111,9 +111,15 @@ header h1 {
 }
 
 .sensor-sections {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .sensor-sections {
+    grid-template-columns: 1fr;
+  }
 }
 
 .sensor-section-title {
