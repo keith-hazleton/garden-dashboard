@@ -148,16 +148,17 @@ router.get('/watering-advice', async (req, res) => {
     const lat = req.query.lat || DEFAULT_LAT;
     const lon = req.query.lon || DEFAULT_LON;
 
-    // Get current soil moisture readings
+    // Get current soil moisture readings (only moisture sensors, not temperature)
     const sensorReadings = db.prepare(`
       SELECT
         sensor_id,
         sensor_name,
         moisture_percent
       FROM sensor_readings
-      WHERE id IN (
-        SELECT MAX(id) FROM sensor_readings GROUP BY sensor_id
-      )
+      WHERE sensor_type = 'moisture'
+        AND id IN (
+          SELECT MAX(id) FROM sensor_readings WHERE sensor_type = 'moisture' GROUP BY sensor_id
+        )
     `).all();
 
     // Get forecast for next 3 days

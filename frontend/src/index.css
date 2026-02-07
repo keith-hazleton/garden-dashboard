@@ -110,6 +110,25 @@ header h1 {
   gap: 1rem;
 }
 
+.sensor-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sensor-section-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.sensor-section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
 .sensor-card {
   background: var(--bg-card);
   border-radius: 0.5rem;

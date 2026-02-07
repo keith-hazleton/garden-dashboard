@@ -136,13 +136,23 @@ function SensorCards() {
   const tempSensors = sensors.filter(s => s.sensor_type === 'temperature' || (s.temperature_f !== null && s.moisture_percent === null))
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
-      {moistureSensors.map(sensor => (
-        <MoistureSensorCard key={sensor.sensor_id} sensor={sensor} />
-      ))}
-      {tempSensors.map(sensor => (
-        <TemperatureSensorCard key={sensor.sensor_id} sensor={sensor} />
-      ))}
+    <div className="sensor-sections">
+      <div className="sensor-section">
+        <h3 className="sensor-section-title">Soil Moisture</h3>
+        <div className="sensor-section-grid">
+          {moistureSensors.map(sensor => (
+            <MoistureSensorCard key={sensor.sensor_id} sensor={sensor} />
+          ))}
+        </div>
+      </div>
+      <div className="sensor-section">
+        <h3 className="sensor-section-title">Soil Temperature</h3>
+        <div className="sensor-section-grid">
+          {tempSensors.map(sensor => (
+            <TemperatureSensorCard key={sensor.sensor_id} sensor={sensor} />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
