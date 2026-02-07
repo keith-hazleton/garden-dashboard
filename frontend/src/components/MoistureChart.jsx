@@ -17,15 +17,18 @@ function MoistureChart() {
         if (!sensorsRes.ok) throw new Error('Failed to fetch sensors')
         const sensorsList = await sensorsRes.json()
 
-        if (sensorsList.length === 0) {
+        // Filter to only moisture sensors (exclude temperature probes)
+        const moistureSensors = sensorsList.filter(s => s.sensor_id.includes('moisture'))
+
+        if (moistureSensors.length === 0) {
           setLoading(false)
           return
         }
 
-        setSensors(sensorsList)
+        setSensors(moistureSensors)
 
         // Fetch history for each sensor
-        const historyPromises = sensorsList.map(s =>
+        const historyPromises = moistureSensors.map(s =>
           fetch(`/api/sensors/history/${s.sensor_id}?hours=24`)
             .then(r => r.ok ? r.json() : [])
         )
@@ -36,7 +39,7 @@ function MoistureChart() {
         const timeMap = new Map()
 
         histories.forEach((history, idx) => {
-          const sensorId = sensorsList[idx].sensor_id
+          const sensorId = moistureSensors[idx].sensor_id
           history.forEach(reading => {
             const time = new Date(reading.timestamp).getTime()
             // Round to nearest 15 minutes for cleaner data
