@@ -81,7 +81,8 @@ router.get('/current', async (req, res) => {
       temperature_unit: 'fahrenheit',
       wind_speed_unit: 'mph',
       precipitation_unit: 'inch',
-      timezone: 'auto'
+      timezone: 'auto',
+      models: 'hrrr_conus'
     });
 
     const result = {
@@ -124,7 +125,8 @@ router.get('/forecast', async (req, res) => {
       temperature_unit: 'fahrenheit',
       wind_speed_unit: 'mph',
       precipitation_unit: 'inch',
-      timezone: 'auto'
+      timezone: 'auto',
+      models: 'gfs_seamless'
     });
 
     const forecast = data.daily.time.map((date, i) => ({
@@ -175,7 +177,8 @@ router.get('/watering-advice', async (req, res) => {
         daily: 'precipitation_sum,precipitation_probability_max,temperature_2m_max',
         temperature_unit: 'fahrenheit',
         precipitation_unit: 'inch',
-        timezone: 'auto'
+        timezone: 'auto',
+        models: 'gfs_seamless'
       });
 
       forecastData = {
