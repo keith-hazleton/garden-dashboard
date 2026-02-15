@@ -82,7 +82,7 @@ router.get('/current', async (req, res) => {
       wind_speed_unit: 'mph',
       precipitation_unit: 'inch',
       timezone: 'auto',
-      models: 'hrrr_conus'
+      models: 'gfs_seamless'
     });
 
     const result = {
