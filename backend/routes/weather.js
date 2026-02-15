@@ -8,6 +8,8 @@ const DEFAULT_LON = process.env.GARDEN_LON;
 
 if (!DEFAULT_LAT || !DEFAULT_LON) {
   console.warn('WARNING: GARDEN_LAT and GARDEN_LON environment variables are not set. Weather features will not work.');
+} else {
+  console.log(`Weather configured for coordinates: ${DEFAULT_LAT}, ${DEFAULT_LON}`);
 }
 
 const CACHE_DURATION_MINUTES = 15;
