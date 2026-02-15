@@ -227,14 +227,22 @@ router.get('/watering-advice', async (req, res) => {
 
     // Check upcoming rain
     const upcomingRain = forecastData.forecast.reduce((total, day) => total + (day.precipitation || 0), 0);
+    const todayRain = forecastData.forecast[0]?.precipitation || 0;
+    const todayRainProbability = forecastData.forecast[0]?.precipitation_probability || 0;
+    const rainExpectedToday = todayRain > 0.1 || todayRainProbability > 50;
     const rainProbability = Math.max(...forecastData.forecast.map(d => d.precipitation_probability || 0));
 
     // Check for high temps
     const maxTemp = Math.max(...forecastData.forecast.map(d => d.temp_high || 0));
 
+    // Check if any sensor is critically dry
+    const hasCritical = recommendations.some(r => r.status === 'critical');
+
     let overallAdvice = '';
 
-    if (upcomingRain > 2) {
+    if (hasCritical && !rainExpectedToday) {
+      overallAdvice = 'Soil is critically dry and rain is not expected today. Water now.';
+    } else if (upcomingRain > 2) {
       overallAdvice = `Heavy rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total). Do not water.`;
     } else if (upcomingRain > 0.5 || rainProbability > 60) {
       overallAdvice = `Rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total, ${rainProbability}% chance). Hold off on watering.`;
