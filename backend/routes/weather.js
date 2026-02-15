@@ -234,8 +234,10 @@ router.get('/watering-advice', async (req, res) => {
 
     let overallAdvice = '';
 
-    if (upcomingRain > 0.5 || rainProbability > 60) {
-      overallAdvice = `Rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total, ${rainProbability}% chance). Consider delaying manual watering.`;
+    if (upcomingRain > 2) {
+      overallAdvice = `Heavy rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total). Do not water.`;
+    } else if (upcomingRain > 0.5 || rainProbability > 60) {
+      overallAdvice = `Rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total, ${rainProbability}% chance). Hold off on watering.`;
     } else if (maxTemp > 95) {
       overallAdvice = `High temperatures expected (${maxTemp}°F). Plants may need extra water, especially in containers.`;
     } else if (maxTemp > 85) {
