@@ -2,10 +2,13 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
 
-// Zone 10b approximate coordinates (Southern California / South Florida area)
-// You can override these with environment variables
-const DEFAULT_LAT = process.env.GARDEN_LAT || 32.7;
-const DEFAULT_LON = process.env.GARDEN_LON || -117.1;
+// Garden coordinates from environment variables (required)
+const DEFAULT_LAT = process.env.GARDEN_LAT;
+const DEFAULT_LON = process.env.GARDEN_LON;
+
+if (!DEFAULT_LAT || !DEFAULT_LON) {
+  console.warn('WARNING: GARDEN_LAT and GARDEN_LON environment variables are not set. Weather features will not work.');
+}
 
 const CACHE_DURATION_MINUTES = 15;
 

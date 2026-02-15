@@ -7,6 +7,7 @@ function PlantingSchedule({ onWatchChange }) {
   const [error, setError] = useState(null)
   const [showAll, setShowAll] = useState(false)
   const [collapsed, setCollapsed] = useState({})
+  const [searchQuery, setSearchQuery] = useState('')
 
   const fetchPlants = useCallback(async () => {
     try {
@@ -66,9 +67,16 @@ function PlantingSchedule({ onWatchChange }) {
     return <div className="empty-state">Could not load planting schedule</div>
   }
 
-  const displayPlants = showAll ? allPlants : plants
+  const rawPlants = showAll ? allPlants : plants
+  const query = searchQuery.toLowerCase().trim()
+  const displayPlants = query
+    ? rawPlants.filter(p =>
+        p.name.toLowerCase().includes(query) ||
+        (p.variety && p.variety.toLowerCase().includes(query))
+      )
+    : rawPlants
 
-  if (displayPlants.length === 0) {
+  if (rawPlants.length === 0) {
     return (
       <div className="empty-state">
         {showAll ? 'No plants in database.' : 'No plants to sow/transplant this month for zone 10a.'}
@@ -148,9 +156,56 @@ function PlantingSchedule({ onWatchChange }) {
         </button>
       </div>
 
+      <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+        <input
+          type="text"
+          placeholder="Search plants..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '0.4rem 0.75rem',
+            paddingRight: searchQuery ? '1.75rem' : '0.75rem',
+            fontSize: '0.8rem',
+            border: '1px solid var(--border-color)',
+            borderRadius: '0.375rem',
+            background: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            outline: 'none',
+            boxSizing: 'border-box'
+          }}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{
+              position: 'absolute',
+              right: '0.5rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              fontSize: '0.875rem',
+              padding: 0,
+              lineHeight: 1
+            }}
+            title="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {query && displayPlants.length === 0 && (
+          <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+            No plants matching "{searchQuery}"
+          </div>
+        )}
         {sortedGroups.map(([groupKey, plantList]) => {
-          const isCollapsed = collapsed[groupKey]
+          const isCollapsed = query ? false : collapsed[groupKey]
 
           return (
             <div key={groupKey} style={{ marginBottom: '0.5rem' }}>

@@ -45,7 +45,7 @@ function WeatherWidget() {
         const forecastData = await forecastRes.json()
 
         setCurrent(currentData)
-        setForecast(forecastData.forecast?.slice(0, 5) || [])
+        setForecast(forecastData.forecast || [])
       } catch (err) {
         setError(err.message)
       } finally {
