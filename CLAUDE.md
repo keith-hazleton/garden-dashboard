@@ -49,3 +49,11 @@ pm2 restart garden-dashboard
 - `refreshKey` pattern for cross-component re-renders
 - try-catch with console.error for error handling
 - Vite proxy: `/api` -> localhost:3000
+- **Always update this CLAUDE.md file** when making changes that affect project structure, conventions, deployment, or key patterns
+
+## Current / Recent Changes
+- Beds support both `sensor_id` (moisture) and `temp_sensor_id` (temperature) columns
+- `backend/services/sensorNames.js` resolves sensor IDs to bed-friendly display names (e.g., "Raised Bed 1 Moisture")
+- All sensor API responses include `display_name`; frontend uses `display_name || sensor_name`
+- Backend PUT `/api/beds/:id` accepts `sensor_id` and `temp_sensor_id`
+- `BedManager.jsx` has inline sensor editing: "Edit Sensors" button toggles moisture/temp dropdowns, PUTs to backend on Save
