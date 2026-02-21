@@ -12,6 +12,7 @@ function BedManager({ watchedKey }) {
   const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '' })
   const [expandedPlant, setExpandedPlant] = useState(null)
   const [companionInfo, setCompanionInfo] = useState(null)
+  const [editingBed, setEditingBed] = useState(null)
 
   const fetchBeds = useCallback(async () => {
     try {
@@ -126,6 +127,27 @@ function BedManager({ watchedKey }) {
     }
   }
 
+  const handleSaveSensors = async () => {
+    if (!editingBed) return
+    try {
+      const res = await fetch(`/api/beds/${selectedBed}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sensor_id: editingBed.sensor_id || null,
+          temp_sensor_id: editingBed.temp_sensor_id || null
+        })
+      })
+      if (res.ok) {
+        setEditingBed(null)
+        fetchBeds()
+        fetchBedDetail()
+      }
+    } catch (err) {
+      console.error('Error updating bed sensors:', err)
+    }
+  }
+
   if (loading) {
     return (
       <div className="loading">
@@ -144,7 +166,7 @@ function BedManager({ watchedKey }) {
         {beds.map(bed => (
           <button
             key={bed.id}
-            onClick={() => setSelectedBed(bed.id)}
+            onClick={() => { setSelectedBed(bed.id); setEditingBed(null) }}
             style={{
               padding: '0.5rem 1rem',
               background: selectedBed === bed.id ? 'var(--accent-blue)' : 'var(--bg-card)',
@@ -286,14 +308,73 @@ function BedManager({ watchedKey }) {
               </div>
             )}
 
-            <button
-              onClick={() => handleDeleteBed(currentBed.id)}
-              className="btn btn-secondary"
-              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
-            >
-              Delete Bed
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                onClick={() => setEditingBed(editingBed ? null : {
+                  sensor_id: currentBed.sensor_id || '',
+                  temp_sensor_id: currentBed.temp_sensor_id || ''
+                })}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+              >
+                {editingBed ? 'Cancel' : 'Edit Sensors'}
+              </button>
+              <button
+                onClick={() => handleDeleteBed(currentBed.id)}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+              >
+                Delete Bed
+              </button>
+            </div>
           </div>
+
+          {/* Inline sensor edit */}
+          {editingBed && (
+            <div style={{
+              display: 'flex',
+              gap: '0.75rem',
+              marginBottom: '1rem',
+              alignItems: 'flex-end',
+              flexWrap: 'wrap'
+            }}>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Moisture Sensor</label>
+                <select
+                  className="input"
+                  value={editingBed.sensor_id}
+                  onChange={e => setEditingBed({ ...editingBed, sensor_id: e.target.value })}
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="">No sensor</option>
+                  {sensors.filter(s => s.sensor_id.includes('moisture')).map(s => (
+                    <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Temp Sensor</label>
+                <select
+                  className="input"
+                  value={editingBed.temp_sensor_id}
+                  onChange={e => setEditingBed({ ...editingBed, temp_sensor_id: e.target.value })}
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="">No sensor</option>
+                  {sensors.filter(s => s.sensor_id.includes('temp')).map(s => (
+                    <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleSaveSensors}
+                className="btn btn-primary"
+                style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}
+              >
+                Save
+              </button>
+            </div>
+          )}
 
           {/* Analysis warnings */}
           {bedDetail.analysis && (
