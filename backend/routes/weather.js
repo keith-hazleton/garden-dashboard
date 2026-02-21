@@ -25,7 +25,7 @@ function getCachedData(dataType) {
 
   if (!cached) return null;
 
-  const fetchedAt = new Date(cached.fetched_at);
+  const fetchedAt = new Date(cached.fetched_at.replace(' ', 'T') + 'Z');
   const now = new Date();
   const minutesOld = (now - fetchedAt) / (1000 * 60);
 
@@ -82,8 +82,7 @@ router.get('/current', async (req, res) => {
       temperature_unit: 'fahrenheit',
       wind_speed_unit: 'mph',
       precipitation_unit: 'inch',
-      timezone: 'auto',
-      models: 'gfs_seamless'
+      timezone: 'auto'
     });
 
     const result = {
