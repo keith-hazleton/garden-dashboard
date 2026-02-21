@@ -103,11 +103,14 @@ function WeatherWidget() {
               <span>{Math.round(day.temp_high)}°</span>
               <span style={{ marginLeft: '0.25rem' }}>{Math.round(day.temp_low)}°</span>
             </span>
-            {day.precipitation_probability > 0 && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--accent-cyan)' }}>
-                {day.precipitation_probability}%
-              </span>
-            )}
+            <span style={{
+              fontSize: '0.75rem',
+              color: day.precipitation_probability > 0 ? 'var(--accent-cyan)' : 'transparent',
+              minWidth: '2rem',
+              textAlign: 'right'
+            }}>
+              {day.precipitation_probability > 0 ? `${day.precipitation_probability}%` : ''}
+            </span>
           </div>
         ))}
       </div>

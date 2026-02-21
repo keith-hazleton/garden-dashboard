@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const { getDisplayName } = require('../services/sensorNames');
 
 // Garden coordinates from environment variables (required)
 const DEFAULT_LAT = process.env.GARDEN_LAT;
@@ -219,6 +220,7 @@ router.get('/watering-advice', async (req, res) => {
       recommendations.push({
         sensor_id: sensor.sensor_id,
         sensor_name: sensor.sensor_name,
+        display_name: getDisplayName(sensor.sensor_id, sensor.sensor_name),
         moisture_percent: moisture,
         status,
         advice

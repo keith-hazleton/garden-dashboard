@@ -133,16 +133,16 @@ router.get('/:id', (req, res) => {
 // Create a new bed
 router.post('/', (req, res) => {
   try {
-    const { name, rows, cols, sensor_id, notes } = req.body;
+    const { name, rows, cols, sensor_id, temp_sensor_id, notes } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Bed name is required' });
     }
 
     const result = db.prepare(`
-      INSERT INTO beds (name, rows, cols, sensor_id, notes)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name, rows || 4, cols || 8, sensor_id, notes);
+      INSERT INTO beds (name, rows, cols, sensor_id, temp_sensor_id, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(name, rows || 4, cols || 8, sensor_id, temp_sensor_id, notes);
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(bed);
@@ -156,7 +156,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, rows, cols, sensor_id, notes } = req.body;
+    const { name, rows, cols, sensor_id, temp_sensor_id, notes } = req.body;
 
     const existing = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     if (!existing) {
@@ -169,9 +169,10 @@ router.put('/:id', (req, res) => {
         rows = COALESCE(?, rows),
         cols = COALESCE(?, cols),
         sensor_id = ?,
+        temp_sensor_id = ?,
         notes = ?
       WHERE id = ?
-    `).run(name, rows, cols, sensor_id, notes, id);
+    `).run(name, rows, cols, sensor_id, temp_sensor_id, notes, id);
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     res.json(bed);

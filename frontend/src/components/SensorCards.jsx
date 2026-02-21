@@ -22,7 +22,7 @@ function MoistureSensorCard({ sensor }) {
   return (
     <div className="sensor-card">
       <div className="sensor-header">
-        <span className="sensor-name">{sensor.sensor_name}</span>
+        <span className="sensor-name">{sensor.display_name || sensor.sensor_name}</span>
         <span className={`battery-indicator ${batteryLow ? 'low' : ''}`}>
           {batteryLow ? 'Low' : 'OK'}
         </span>
@@ -47,7 +47,7 @@ function MoistureSensorCard({ sensor }) {
       </div>
 
       <div style={{ fontSize: '0.625rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-        {new Date(sensor.timestamp).toLocaleString()}
+        {new Date(sensor.timestamp + 'Z').toLocaleString()}
       </div>
     </div>
   )
@@ -60,7 +60,7 @@ function TemperatureSensorCard({ sensor }) {
   return (
     <div className="sensor-card">
       <div className="sensor-header">
-        <span className="sensor-name">{sensor.sensor_name}</span>
+        <span className="sensor-name">{sensor.display_name || sensor.sensor_name}</span>
         <span className={`battery-indicator ${batteryLow ? 'low' : ''}`}>
           {batteryLow ? 'Low' : 'OK'}
         </span>
@@ -79,7 +79,7 @@ function TemperatureSensorCard({ sensor }) {
       </div>
 
       <div style={{ fontSize: '0.625rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-        {new Date(sensor.timestamp).toLocaleString()}
+        {new Date(sensor.timestamp + 'Z').toLocaleString()}
       </div>
     </div>
   )

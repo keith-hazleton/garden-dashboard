@@ -1,4 +1,5 @@
 const db = require('../models/db');
+const { getDisplayName } = require('./sensorNames');
 
 // Get a setting from the database
 function getSetting(key) {
@@ -107,6 +108,8 @@ async function checkMoistureAlert(sensorId, sensorName, moisturePercent) {
     return;
   }
 
+  const displayName = getDisplayName(sensorId, sensorName);
+
   let alertType = null;
   let title = null;
   let message = null;
@@ -115,19 +118,19 @@ async function checkMoistureAlert(sensorId, sensorName, moisturePercent) {
 
   if (moisturePercent <= profile.moisture_critical) {
     alertType = 'moisture_critical_low';
-    title = `${sensorName}: Critical - Needs Water!`;
+    title = `${displayName}: Critical - Needs Water!`;
     message = `Soil moisture is critically low at ${moisturePercent}% (threshold: ${profile.moisture_critical}%)`;
     priority = 'urgent';
     tags = ['warning', 'droplet'];
   } else if (moisturePercent <= profile.moisture_low) {
     alertType = 'moisture_low';
-    title = `${sensorName}: Low Moisture`;
+    title = `${displayName}: Low Moisture`;
     message = `Soil moisture is low at ${moisturePercent}% (threshold: ${profile.moisture_low}%)`;
     priority = 'high';
     tags = ['droplet'];
   } else if (moisturePercent >= profile.moisture_high) {
     alertType = 'moisture_high';
-    title = `${sensorName}: Over-Saturated`;
+    title = `${displayName}: Over-Saturated`;
     message = `Soil moisture is very high at ${moisturePercent}% (threshold: ${profile.moisture_high}%). Risk of root rot.`;
     priority = 'high';
     tags = ['warning', 'sweat_drops'];
@@ -153,6 +156,8 @@ async function checkTemperatureAlert(sensorId, sensorName, tempF) {
     return;
   }
 
+  const displayName = getDisplayName(sensorId, sensorName);
+
   let alertType = null;
   let title = null;
   let message = null;
@@ -161,25 +166,25 @@ async function checkTemperatureAlert(sensorId, sensorName, tempF) {
 
   if (tempF <= profile.temp_critical_low) {
     alertType = 'temp_critical_low';
-    title = `${sensorName}: Freezing Risk!`;
+    title = `${displayName}: Freezing Risk!`;
     message = `Soil temperature is ${tempF}F - risk of frost damage! (threshold: ${profile.temp_critical_low}F)`;
     priority = 'urgent';
     tags = ['warning', 'cold_face'];
   } else if (tempF <= profile.temp_low) {
     alertType = 'temp_low';
-    title = `${sensorName}: Cold Soil`;
+    title = `${displayName}: Cold Soil`;
     message = `Soil temperature is low at ${tempF}F (threshold: ${profile.temp_low}F)`;
     priority = 'high';
     tags = ['snowflake'];
   } else if (tempF >= profile.temp_critical_high) {
     alertType = 'temp_critical_high';
-    title = `${sensorName}: Extreme Heat!`;
+    title = `${displayName}: Extreme Heat!`;
     message = `Soil temperature is dangerously high at ${tempF}F! (threshold: ${profile.temp_critical_high}F)`;
     priority = 'urgent';
     tags = ['warning', 'fire'];
   } else if (tempF >= profile.temp_high) {
     alertType = 'temp_high';
-    title = `${sensorName}: Hot Soil`;
+    title = `${displayName}: Hot Soil`;
     message = `Soil temperature is high at ${tempF}F (threshold: ${profile.temp_high}F)`;
     priority = 'high';
     tags = ['thermometer'];

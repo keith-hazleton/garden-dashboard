@@ -9,7 +9,7 @@ function BedManager({ watchedKey }) {
   const [watchedPlants, setWatchedPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '' })
+  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '' })
   const [expandedPlant, setExpandedPlant] = useState(null)
   const [companionInfo, setCompanionInfo] = useState(null)
 
@@ -101,7 +101,7 @@ function BedManager({ watchedKey }) {
       if (res.ok) {
         const bed = await res.json()
         setShowCreateForm(false)
-        setNewBed({ name: '', rows: 4, cols: 8, sensor_id: '' })
+        setNewBed({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '' })
         fetchBeds()
         setSelectedBed(bed.id)
       }
@@ -213,15 +213,28 @@ function BedManager({ watchedKey }) {
               />
             </div>
             <div>
-              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Sensor</label>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Moisture Sensor</label>
               <select
                 className="input"
                 value={newBed.sensor_id}
                 onChange={e => setNewBed({ ...newBed, sensor_id: e.target.value })}
               >
                 <option value="">No sensor</option>
-                {sensors.map(s => (
-                  <option key={s.sensor_id} value={s.sensor_id}>{s.sensor_name}</option>
+                {sensors.filter(s => s.sensor_id.includes('moisture')).map(s => (
+                  <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Temp Sensor</label>
+              <select
+                className="input"
+                value={newBed.temp_sensor_id}
+                onChange={e => setNewBed({ ...newBed, temp_sensor_id: e.target.value })}
+              >
+                <option value="">No sensor</option>
+                {sensors.filter(s => s.sensor_id.includes('temp')).map(s => (
+                  <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
                 ))}
               </select>
             </div>

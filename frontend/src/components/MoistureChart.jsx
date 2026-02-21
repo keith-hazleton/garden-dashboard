@@ -41,7 +41,7 @@ function MoistureChart() {
         histories.forEach((history, idx) => {
           const sensorId = moistureSensors[idx].sensor_id
           history.forEach(reading => {
-            const time = new Date(reading.timestamp).getTime()
+            const time = new Date(reading.timestamp + 'Z').getTime()
             // Round to nearest 15 minutes for cleaner data
             const roundedTime = Math.round(time / (15 * 60 * 1000)) * (15 * 60 * 1000)
 
@@ -101,7 +101,7 @@ function MoistureChart() {
   return (
     <div className="chart-container">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
           <XAxis
             dataKey="timestamp"
@@ -147,7 +147,7 @@ function MoistureChart() {
               key={sensor.sensor_id}
               type="monotone"
               dataKey={sensor.sensor_id}
-              name={sensor.sensor_name}
+              name={sensor.display_name || sensor.sensor_name}
               stroke={COLORS[idx % COLORS.length]}
               strokeWidth={2}
               dot={false}
@@ -159,8 +159,9 @@ function MoistureChart() {
 
       <div style={{
         display: 'flex',
+        flexWrap: 'wrap',
         justifyContent: 'center',
-        gap: '1.5rem',
+        gap: '1rem',
         marginTop: '0.5rem',
         fontSize: '0.75rem',
         color: 'var(--text-secondary)'

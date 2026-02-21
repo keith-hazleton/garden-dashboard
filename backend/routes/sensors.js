@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
 const { checkMoistureAlert, checkTemperatureAlert } = require('../services/alerts');
+const { getDisplayName } = require('../services/sensorNames');
 
 // Ecowitt gateway webhook endpoint
 // The gateway POSTs form-encoded data to this endpoint
@@ -124,7 +125,12 @@ router.get('/latest', (req, res) => {
       ORDER BY sensor_type, sensor_id
     `).all();
 
-    res.json(readings);
+    const result = readings.map(r => ({
+      ...r,
+      display_name: getDisplayName(r.sensor_id, r.sensor_name)
+    }));
+
+    res.json(result);
   } catch (error) {
     console.error('Error fetching latest readings:', error);
     res.status(500).json({ error: 'Failed to fetch readings' });
@@ -160,7 +166,7 @@ router.get('/history/:sensorId', (req, res) => {
 router.get('/', (req, res) => {
   try {
     const sensors = db.prepare(`
-      SELECT DISTINCT 
+      SELECT DISTINCT
         sensor_id,
         sensor_name,
         MAX(timestamp) as last_seen
@@ -168,8 +174,13 @@ router.get('/', (req, res) => {
       GROUP BY sensor_id
       ORDER BY sensor_id
     `).all();
-    
-    res.json(sensors);
+
+    const result = sensors.map(s => ({
+      ...s,
+      display_name: getDisplayName(s.sensor_id, s.sensor_name)
+    }));
+
+    res.json(result);
   } catch (error) {
     console.error('Error fetching sensors:', error);
     res.status(500).json({ error: 'Failed to fetch sensors' });

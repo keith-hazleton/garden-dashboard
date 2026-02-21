@@ -79,7 +79,7 @@ function WateringAdvice() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{sensor.sensor_name}</div>
+                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{sensor.display_name || sensor.sensor_name}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {sensor.advice}
                 </div>
