@@ -103,25 +103,25 @@ function MoistureChart() {
       <div style={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#2d4a36" />
             <XAxis
               dataKey="timestamp"
               tickFormatter={formatTime}
-              stroke="#94a3b8"
+              stroke="#8a9e8f"
               fontSize={12}
-              tick={{ fill: '#94a3b8' }}
+              tick={{ fill: '#8a9e8f' }}
             />
             <YAxis
               domain={[0, 100]}
-              stroke="#94a3b8"
+              stroke="#8a9e8f"
               fontSize={12}
-              tick={{ fill: '#94a3b8' }}
+              tick={{ fill: '#8a9e8f' }}
               tickFormatter={(value) => `${value}%`}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1e293b',
-                border: '1px solid #475569',
+                backgroundColor: '#162019',
+                border: '1px solid #2d4a36',
                 borderRadius: '0.5rem'
               }}
               labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}

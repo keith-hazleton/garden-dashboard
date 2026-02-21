@@ -15,6 +15,66 @@ function getTempStatus(tempF) {
   return 'ideal'
 }
 
+const STATUS_COLORS = {
+  critical: 'var(--accent-red)',
+  low: 'var(--accent-yellow)',
+  good: 'var(--accent-green)',
+  saturated: 'var(--accent-blue)',
+}
+
+function MoistureRingGauge({ percent, status }) {
+  const radius = 40
+  const strokeWidth = 6
+  const size = 92
+  const center = size / 2
+  const circumference = 2 * Math.PI * radius
+  const fillPercent = Math.min(100, Math.max(0, percent))
+  const offset = circumference - (fillPercent / 100) * circumference
+
+  return (
+    <div className="sensor-gauge-container">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Background track */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke="var(--bg-secondary)"
+          strokeWidth={strokeWidth}
+        />
+        {/* Filled arc */}
+        <circle
+          cx={center}
+          cy={center}
+          r={radius}
+          fill="none"
+          stroke={STATUS_COLORS[status]}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${center} ${center})`}
+          style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
+        />
+        {/* Center value */}
+        <text
+          x={center}
+          y={center}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill={STATUS_COLORS[status]}
+          fontSize="18"
+          fontWeight="700"
+          fontFamily="Outfit, sans-serif"
+        >
+          {Math.round(percent)}%
+        </text>
+      </svg>
+    </div>
+  )
+}
+
 function MoistureSensorCard({ sensor }) {
   const status = getMoistureStatus(sensor.moisture_percent)
   const batteryLow = sensor.battery_status === '0' || sensor.battery_status === 'low'
@@ -28,25 +88,16 @@ function MoistureSensorCard({ sensor }) {
         </span>
       </div>
 
-      <div className={`moisture-value ${status}`}>
-        {Math.round(sensor.moisture_percent)}%
-      </div>
+      <MoistureRingGauge percent={sensor.moisture_percent} status={status} />
 
-      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+      <div className="sensor-status-text">
         {status === 'critical' && 'Needs water!'}
         {status === 'low' && 'Getting dry'}
         {status === 'good' && 'Good moisture'}
         {status === 'saturated' && 'Very wet'}
       </div>
 
-      <div className="moisture-bar">
-        <div
-          className={`moisture-bar-fill ${status}`}
-          style={{ width: `${Math.min(100, sensor.moisture_percent)}%` }}
-        />
-      </div>
-
-      <div style={{ fontSize: '0.625rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+      <div className="sensor-timestamp">
         {new Date(sensor.timestamp + 'Z').toLocaleString()}
       </div>
     </div>
@@ -67,6 +118,7 @@ function TemperatureSensorCard({ sensor }) {
       </div>
 
       <div className={`temp-value ${status}`}>
+        <span className={`temp-status-dot ${status}`} />
         {Math.round(sensor.temperature_f)}°F
       </div>
 
@@ -78,7 +130,7 @@ function TemperatureSensorCard({ sensor }) {
         {status === 'hot' && 'Hot - may stress plants'}
       </div>
 
-      <div style={{ fontSize: '0.625rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+      <div className="sensor-timestamp">
         {new Date(sensor.timestamp + 'Z').toLocaleString()}
       </div>
     </div>
