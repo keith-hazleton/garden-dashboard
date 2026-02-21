@@ -100,66 +100,69 @@ function MoistureChart() {
 
   return (
     <div className="chart-container">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-          <XAxis
-            dataKey="timestamp"
-            tickFormatter={formatTime}
-            stroke="#94a3b8"
-            fontSize={12}
-            tick={{ fill: '#94a3b8' }}
-          />
-          <YAxis
-            domain={[0, 100]}
-            stroke="#94a3b8"
-            fontSize={12}
-            tick={{ fill: '#94a3b8' }}
-            tickFormatter={(value) => `${value}%`}
-          />
-          <Tooltip
-            contentStyle={{
-              backgroundColor: '#1e293b',
-              border: '1px solid #475569',
-              borderRadius: '0.5rem'
-            }}
-            labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}
-            formatter={(value) => [`${value.toFixed(1)}%`, '']}
-          />
-          <Legend />
-
-          {/* Reference lines for moisture zones */}
-          <CartesianGrid
-            y={20}
-            stroke="#ef4444"
-            strokeDasharray="5 5"
-            horizontal={false}
-          />
-          <CartesianGrid
-            y={35}
-            stroke="#eab308"
-            strokeDasharray="5 5"
-            horizontal={false}
-          />
-
-          {sensors.map((sensor, idx) => (
-            <Line
-              key={sensor.sensor_id}
-              type="monotone"
-              dataKey={sensor.sensor_id}
-              name={sensor.display_name || sensor.sensor_name}
-              stroke={COLORS[idx % COLORS.length]}
-              strokeWidth={2}
-              dot={false}
-              connectNulls
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={formatTime}
+              stroke="#94a3b8"
+              fontSize={12}
+              tick={{ fill: '#94a3b8' }}
             />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+            <YAxis
+              domain={[0, 100]}
+              stroke="#94a3b8"
+              fontSize={12}
+              tick={{ fill: '#94a3b8' }}
+              tickFormatter={(value) => `${value}%`}
+            />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#1e293b',
+                border: '1px solid #475569',
+                borderRadius: '0.5rem'
+              }}
+              labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}
+              formatter={(value) => [`${value.toFixed(1)}%`, '']}
+            />
+            <Legend />
+
+            {/* Reference lines for moisture zones */}
+            <CartesianGrid
+              y={20}
+              stroke="#ef4444"
+              strokeDasharray="5 5"
+              horizontal={false}
+            />
+            <CartesianGrid
+              y={35}
+              stroke="#eab308"
+              strokeDasharray="5 5"
+              horizontal={false}
+            />
+
+            {sensors.map((sensor, idx) => (
+              <Line
+                key={sensor.sensor_id}
+                type="monotone"
+                dataKey={sensor.sensor_id}
+                name={sensor.display_name || sensor.sensor_name}
+                stroke={COLORS[idx % COLORS.length]}
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
 
       <div style={{
         display: 'flex',
         flexWrap: 'wrap',
+        flexShrink: 0,
         justifyContent: 'center',
         gap: '1rem',
         marginTop: '0.5rem',

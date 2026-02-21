@@ -438,6 +438,8 @@ header h1 {
 .chart-container {
   height: 320px;
   margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Forms and inputs */

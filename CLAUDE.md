@@ -13,9 +13,18 @@ React/Vite frontend + Express/better-sqlite3 backend garden dashboard for monito
 - `backend/` — Express server (routes, services, models, scripts)
 - `frontend/src/` — React app (components, App.jsx, index.css)
 
-## How to Run
-- **Backend:** `cd backend && npm run dev` (port 3000)
+## How to Run (Local Dev)
+- **Backend:** `cd backend && npm run dev` (port 3000, auto-restarts on changes)
 - **Frontend:** `cd frontend && npm run dev` (port 5173 with Vite proxy to backend)
+
+## Deploying to Pi
+The backend serves the frontend's built static files from `frontend/dist`. One pm2 process runs everything.
+```bash
+cd ~/garden-dashboard
+git pull
+cd frontend && npm run build
+pm2 restart garden-dashboard
+```
 
 ## Database
 - SQLite at `backend/data/garden.db`
