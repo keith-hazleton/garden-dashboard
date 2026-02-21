@@ -19,7 +19,7 @@ function WeatherIcon({ code, size = 64 }) {
     return (
       <svg className="weather-svg-icon" width={s} height={s} viewBox="0 0 64 64" fill="none">
         <circle cx="32" cy="32" r="12" fill="#facc15" />
-        <g className="sun-rays" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round">
+        <g className="sun-rays" style={{ transformOrigin: '32px 32px' }} stroke="#facc15" strokeWidth="2.5" strokeLinecap="round">
           <line x1="32" y1="6" x2="32" y2="14" />
           <line x1="32" y1="50" x2="32" y2="58" />
           <line x1="6" y1="32" x2="14" y2="32" />
@@ -38,7 +38,7 @@ function WeatherIcon({ code, size = 64 }) {
     return (
       <svg className="weather-svg-icon" width={s} height={s} viewBox="0 0 64 64" fill="none">
         <circle cx="24" cy="22" r="10" fill="#facc15" />
-        <g className="sun-rays" stroke="#facc15" strokeWidth="2" strokeLinecap="round">
+        <g className="sun-rays" style={{ transformOrigin: '24px 22px' }} stroke="#facc15" strokeWidth="2" strokeLinecap="round">
           <line x1="24" y1="6" x2="24" y2="10" />
           <line x1="10" y1="22" x2="6" y2="22" />
           <line x1="12" y1="10" x2="14.8" y2="12.8" />

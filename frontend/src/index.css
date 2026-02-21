@@ -436,7 +436,6 @@ header h1 {
 }
 
 .weather-svg-icon .sun-rays {
-  transform-origin: center;
   animation: rotateSlow 12s linear infinite;
 }
 
