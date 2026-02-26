@@ -4,7 +4,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const COLORS = ['#22c55e', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
 
 function MoistureChart() {
-  const [sensors, setSensors] = useState([])
+  const [moistureSensors, setMoistureSensors] = useState([])
+  const [tempSensors, setTempSensors] = useState([])
   const [chartData, setChartData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -17,18 +18,21 @@ function MoistureChart() {
         if (!sensorsRes.ok) throw new Error('Failed to fetch sensors')
         const sensorsList = await sensorsRes.json()
 
-        // Filter to only moisture sensors (exclude temperature probes)
-        const moistureSensors = sensorsList.filter(s => s.sensor_id.includes('moisture'))
+        // Split into moisture and temperature sensors
+        const moistureSensorsList = sensorsList.filter(s => s.sensor_id.includes('moisture'))
+        const tempSensorsList = sensorsList.filter(s => s.sensor_id.includes('temp'))
 
-        if (moistureSensors.length === 0) {
+        if (moistureSensorsList.length === 0 && tempSensorsList.length === 0) {
           setLoading(false)
           return
         }
 
-        setSensors(moistureSensors)
+        setMoistureSensors(moistureSensorsList)
+        setTempSensors(tempSensorsList)
 
-        // Fetch history for each sensor
-        const historyPromises = moistureSensors.map(s =>
+        // Fetch history for all sensors
+        const allSensors = [...moistureSensorsList, ...tempSensorsList]
+        const historyPromises = allSensors.map(s =>
           fetch(`/api/sensors/history/${s.sensor_id}?hours=24`)
             .then(r => r.ok ? r.json() : [])
         )
@@ -39,7 +43,9 @@ function MoistureChart() {
         const timeMap = new Map()
 
         histories.forEach((history, idx) => {
-          const sensorId = moistureSensors[idx].sensor_id
+          const sensor = allSensors[idx]
+          const isMoisture = idx < moistureSensorsList.length
+
           history.forEach(reading => {
             const time = new Date(reading.timestamp + 'Z').getTime()
             // Round to nearest 15 minutes for cleaner data
@@ -48,7 +54,9 @@ function MoistureChart() {
             if (!timeMap.has(roundedTime)) {
               timeMap.set(roundedTime, { timestamp: roundedTime })
             }
-            timeMap.get(roundedTime)[sensorId] = reading.moisture_percent
+            timeMap.get(roundedTime)[sensor.sensor_id] = isMoisture
+              ? reading.moisture_percent
+              : reading.temperature_f
           })
         })
 
@@ -80,7 +88,7 @@ function MoistureChart() {
     return <div className="empty-state">Error loading chart: {error}</div>
   }
 
-  if (sensors.length === 0 || chartData.length === 0) {
+  if (moistureSensors.length === 0 && tempSensors.length === 0 || chartData.length === 0) {
     return (
       <div className="empty-state">
         <p>No historical data available yet.</p>
@@ -98,11 +106,13 @@ function MoistureChart() {
     })
   }
 
+  const tempSensorIds = new Set(tempSensors.map(s => s.sensor_id))
+
   return (
     <div className="chart-container">
       <div style={{ flex: 1, minHeight: 0 }}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 20 }}>
+          <LineChart data={chartData} margin={{ top: 5, right: 60, left: 0, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2d4a36" />
             <XAxis
               dataKey="timestamp"
@@ -112,11 +122,20 @@ function MoistureChart() {
               tick={{ fill: '#8a9e8f' }}
             />
             <YAxis
+              yAxisId="moisture"
               domain={[0, 100]}
               stroke="#8a9e8f"
               fontSize={12}
               tick={{ fill: '#8a9e8f' }}
               tickFormatter={(value) => `${value}%`}
+            />
+            <YAxis
+              yAxisId="temp"
+              orientation="right"
+              stroke="#8a9e8f"
+              fontSize={12}
+              tick={{ fill: '#8a9e8f' }}
+              tickFormatter={(value) => `${value}°F`}
             />
             <Tooltip
               contentStyle={{
@@ -125,7 +144,10 @@ function MoistureChart() {
                 borderRadius: '0.5rem'
               }}
               labelFormatter={(timestamp) => new Date(timestamp).toLocaleString()}
-              formatter={(value) => [`${value.toFixed(1)}%`, '']}
+              formatter={(value, name, props) => {
+                const isTempSensor = tempSensorIds.has(props.dataKey)
+                return [`${value.toFixed(1)}${isTempSensor ? '°F' : '%'}`, name]
+              }}
             />
             <Legend />
 
@@ -143,14 +165,30 @@ function MoistureChart() {
               horizontal={false}
             />
 
-            {sensors.map((sensor, idx) => (
+            {moistureSensors.map((sensor, idx) => (
               <Line
                 key={sensor.sensor_id}
+                yAxisId="moisture"
                 type="monotone"
                 dataKey={sensor.sensor_id}
                 name={sensor.display_name || sensor.sensor_name}
                 stroke={COLORS[idx % COLORS.length]}
                 strokeWidth={2}
+                dot={false}
+                connectNulls
+              />
+            ))}
+
+            {tempSensors.map((sensor, idx) => (
+              <Line
+                key={sensor.sensor_id}
+                yAxisId="temp"
+                type="monotone"
+                dataKey={sensor.sensor_id}
+                name={sensor.display_name || sensor.sensor_name}
+                stroke={COLORS[(moistureSensors.length + idx) % COLORS.length]}
+                strokeWidth={2}
+                strokeDasharray="5 5"
                 dot={false}
                 connectNulls
               />
@@ -173,6 +211,9 @@ function MoistureChart() {
         <span><span style={{ color: 'var(--accent-yellow)' }}>—</span> Low (&lt;35%)</span>
         <span><span style={{ color: 'var(--accent-green)' }}>—</span> Good (35-70%)</span>
         <span><span style={{ color: 'var(--accent-blue)' }}>—</span> Saturated (&gt;70%)</span>
+        <span style={{ borderLeft: '1px solid var(--text-secondary)', paddingLeft: '1rem' }}>
+          <span style={{ borderBottom: '2px dashed var(--text-secondary)' }}>&nbsp;&nbsp;&nbsp;</span> Soil Temp (°F, right axis)
+        </span>
       </div>
     </div>
   )
