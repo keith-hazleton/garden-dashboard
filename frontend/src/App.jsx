@@ -94,6 +94,13 @@ function App() {
           <WeatherWidget key={`weather-${refreshKey}`} />
         </div>
 
+        <div className="card chart-section">
+          <div className="card-header">
+            <h2 className="card-title">History</h2>
+          </div>
+          <MoistureChart key={`chart-${refreshKey}`} />
+        </div>
+
         <div className="card watering-advice">
           <div className="card-header">
             <h2 className="card-title">Watering Recommendations</h2>
@@ -123,13 +130,6 @@ function App() {
             <h2 className="card-title">Bed Map & Companion Planting</h2>
           </div>
           <BedManager key={`beds-${refreshKey}`} watchedKey={watchedKey} />
-        </div>
-
-        <div className="card chart-section">
-          <div className="card-header">
-            <h2 className="card-title">Moisture History (24h)</h2>
-          </div>
-          <MoistureChart key={`chart-${refreshKey}`} />
         </div>
 
         <div className="card tasks-panel">
