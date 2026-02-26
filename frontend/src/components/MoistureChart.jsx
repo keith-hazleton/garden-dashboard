@@ -123,7 +123,7 @@ function MoistureChart() {
             />
             <YAxis
               yAxisId="moisture"
-              domain={[0, 100]}
+              domain={['auto', 'auto']}
               stroke="#8a9e8f"
               fontSize={12}
               tick={{ fill: '#8a9e8f' }}
