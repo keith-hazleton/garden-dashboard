@@ -8,6 +8,7 @@ const plantRoutes = require('./routes/plants');
 const taskRoutes = require('./routes/tasks');
 const weatherRoutes = require('./routes/weather');
 const bedRoutes = require('./routes/beds');
+const { startScheduledNotifications } = require('./services/scheduledNotifications');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,4 +44,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Garden Dashboard running at http://localhost:${PORT}`);
   console.log(`Ecowitt webhook endpoint: http://<your-pi-ip>:${PORT}/api/sensors/ecowitt`);
+
+  // Start scheduled notifications (daily watering report, etc.)
+  startScheduledNotifications();
 });

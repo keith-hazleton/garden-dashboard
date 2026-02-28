@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
 const { getDisplayName } = require('../services/sensorNames');
+const { getWateringAdvice } = require('../services/wateringAdvice');
 
 // Garden coordinates from environment variables (required)
 const DEFAULT_LAT = process.env.GARDEN_LAT;
@@ -152,119 +153,8 @@ router.get('/forecast', async (req, res) => {
 // Get watering recommendation based on weather + soil moisture
 router.get('/watering-advice', async (req, res) => {
   try {
-    const lat = req.query.lat || DEFAULT_LAT;
-    const lon = req.query.lon || DEFAULT_LON;
-
-    // Get current soil moisture readings (only moisture sensors, not temperature)
-    const sensorReadings = db.prepare(`
-      SELECT
-        sensor_id,
-        sensor_name,
-        moisture_percent
-      FROM sensor_readings
-      WHERE sensor_type = 'moisture'
-        AND id IN (
-          SELECT MAX(id) FROM sensor_readings WHERE sensor_type = 'moisture' GROUP BY sensor_id
-        )
-    `).all();
-
-    // Get forecast for next 3 days
-    let forecastData = getCachedData('forecast');
-    if (!forecastData) {
-      const data = await fetchOpenMeteo('forecast', {
-        latitude: lat,
-        longitude: lon,
-        daily: 'precipitation_sum,precipitation_probability_max,temperature_2m_max',
-        temperature_unit: 'fahrenheit',
-        precipitation_unit: 'inch',
-        timezone: 'auto',
-        models: 'gfs_seamless'
-      });
-
-      forecastData = {
-        forecast: data.daily.time.slice(0, 3).map((date, i) => ({
-          date,
-          precipitation: data.daily.precipitation_sum[i],
-          precipitation_probability: data.daily.precipitation_probability_max[i],
-          temp_high: data.daily.temperature_2m_max[i]
-        }))
-      };
-    } else {
-      forecastData.forecast = forecastData.forecast.slice(0, 3);
-    }
-
-    // Calculate watering recommendation
-    const recommendations = [];
-
-    // Check each sensor
-    for (const sensor of sensorReadings) {
-      const moisture = sensor.moisture_percent;
-      let status = 'ok';
-      let advice = '';
-
-      if (moisture < 20) {
-        status = 'critical';
-        advice = 'Water immediately - soil is very dry';
-      } else if (moisture < 35) {
-        status = 'low';
-        advice = 'Consider watering soon';
-      } else if (moisture > 70) {
-        status = 'saturated';
-        advice = 'Soil is very wet - no watering needed';
-      } else {
-        status = 'good';
-        advice = 'Moisture levels are adequate';
-      }
-
-      recommendations.push({
-        sensor_id: sensor.sensor_id,
-        sensor_name: sensor.sensor_name,
-        display_name: getDisplayName(sensor.sensor_id, sensor.sensor_name),
-        moisture_percent: moisture,
-        status,
-        advice
-      });
-    }
-
-    // Check upcoming rain
-    const upcomingRain = forecastData.forecast.reduce((total, day) => total + (day.precipitation || 0), 0);
-    const todayRain = forecastData.forecast[0]?.precipitation || 0;
-    const todayRainProbability = forecastData.forecast[0]?.precipitation_probability || 0;
-    const rainExpectedToday = todayRain > 0.1 || todayRainProbability > 50;
-    const rainProbability = Math.max(...forecastData.forecast.map(d => d.precipitation_probability || 0));
-
-    // Check for high temps
-    const maxTemp = Math.max(...forecastData.forecast.map(d => d.temp_high || 0));
-
-    // Check if any sensor is critically dry
-    const hasCritical = recommendations.some(r => r.status === 'critical');
-
-    let overallAdvice = '';
-
-    if (hasCritical && !rainExpectedToday) {
-      overallAdvice = 'Soil is critically dry and rain is not expected today. Water now.';
-    } else if (upcomingRain > 2) {
-      overallAdvice = `Heavy rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total). Do not water.`;
-    } else if (upcomingRain > 0.5 || rainProbability > 60) {
-      overallAdvice = `Rain expected in the next 3 days (${upcomingRain.toFixed(2)}" total, ${rainProbability}% chance). Hold off on watering.`;
-    } else if (maxTemp > 95) {
-      overallAdvice = `High temperatures expected (${maxTemp}°F). Plants may need extra water, especially in containers.`;
-    } else if (maxTemp > 85) {
-      overallAdvice = 'Warm weather ahead. Monitor soil moisture and water in the morning if needed.';
-    } else {
-      overallAdvice = 'Weather conditions are moderate. Water based on soil moisture readings.';
-    }
-
-    res.json({
-      sensors: recommendations,
-      forecast_summary: {
-        days_checked: 3,
-        total_expected_rain: upcomingRain,
-        max_rain_probability: rainProbability,
-        max_temperature: maxTemp
-      },
-      overall_advice: overallAdvice
-    });
+    const advice = await getWateringAdvice();
+    res.json(advice);
   } catch (error) {
     console.error('Error generating watering advice:', error);
     res.status(500).json({ error: 'Failed to generate watering advice' });
