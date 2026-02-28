@@ -8,8 +8,8 @@ function getSetting(key) {
 /**
  * Compute the suggested profile for a bed based on its placements.
  * - Returns 'seedling' if any placement is a seed planted within graduation window
- * - Returns 'cool_season' if all plants are frost_tolerant
- * - Returns 'warm_season' otherwise
+ * - Returns 'cool_season' if any plant is frost_tolerant (protects heat-sensitive plants)
+ * - Returns 'warm_season' only if all plants are warm-season
  * - Returns null for empty beds
  */
 function computeSuggestedProfile(bedId) {
@@ -35,9 +35,9 @@ function computeSuggestedProfile(bedId) {
 
     if (hasActiveSeedlings) return 'seedling';
 
-    // Check if all plants are frost tolerant
-    const allFrostTolerant = placements.every(p => p.frost_tolerant);
-    if (allFrostTolerant) return 'cool_season';
+    // If any plant is cool-season (frost_tolerant), use cool_season to protect from heat
+    const anyCoolSeason = placements.some(p => p.frost_tolerant);
+    if (anyCoolSeason) return 'cool_season';
 
     return 'warm_season';
   } catch (e) {
