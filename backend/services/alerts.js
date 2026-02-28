@@ -51,6 +51,42 @@ function recordAlert(sensorId, alertType, message) {
   `).run(sensorId, alertType, message);
 }
 
+// Check if moisture has been sustained above threshold for the required duration
+function isSustainedHigh(sensorId, threshold, minutes) {
+  // If any reading in the last N minutes was below threshold, not sustained
+  const recentNormal = db.prepare(`
+    SELECT id FROM sensor_readings
+    WHERE sensor_id = ?
+      AND sensor_type = 'moisture'
+      AND moisture_percent < ?
+      AND timestamp > datetime('now', '-' || ? || ' minutes')
+    LIMIT 1
+  `).get(sensorId, threshold, minutes);
+
+  if (recentNormal) return false;
+
+  // Confirm we have readings going back at least N minutes
+  const hasHistory = db.prepare(`
+    SELECT id FROM sensor_readings
+    WHERE sensor_id = ?
+      AND sensor_type = 'moisture'
+      AND timestamp <= datetime('now', '-' || ? || ' minutes')
+    LIMIT 1
+  `).get(sensorId, minutes);
+
+  if (!hasHistory) return false;
+
+  // Ensure at least 3 readings in window to avoid false positives from gaps
+  const count = db.prepare(`
+    SELECT COUNT(*) as cnt FROM sensor_readings
+    WHERE sensor_id = ?
+      AND sensor_type = 'moisture'
+      AND timestamp > datetime('now', '-' || ? || ' minutes')
+  `).get(sensorId, minutes);
+
+  return count.cnt >= 3;
+}
+
 // Send notification via ntfy
 async function sendNtfyNotification(title, message, priority = 'default', tags = []) {
   const enabled = getSetting('ntfy_enabled');
@@ -134,6 +170,15 @@ async function checkMoistureAlert(sensorId, sensorName, moisturePercent) {
     message = `Soil moisture is very high at ${moisturePercent}% (threshold: ${profile.moisture_high}%). Risk of root rot.`;
     priority = 'high';
     tags = ['warning', 'sweat_drops'];
+  }
+
+  // For high moisture, require sustained readings before alerting
+  if (alertType === 'moisture_high') {
+    const sustainedMinutes = parseInt(getSetting('sustained_high_minutes')) || 60;
+    if (!isSustainedHigh(sensorId, profile.moisture_high, sustainedMinutes)) {
+      console.log(`High moisture for ${sensorId} not yet sustained for ${sustainedMinutes} min, skipping alert`);
+      return;
+    }
   }
 
   if (alertType && !isInCooldown(sensorId, alertType)) {

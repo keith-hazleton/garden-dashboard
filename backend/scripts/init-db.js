@@ -1049,6 +1049,9 @@ const alertSettings = [
   // Alert cooldown in minutes (don't repeat same alert within this time)
   ['alert_cooldown_minutes', '240'],
 
+  // Minutes moisture must stay above threshold before sending high-moisture alert
+  ['sustained_high_minutes', '60'],
+
   // Quiet hours (no notifications during this time, 24-hour format)
   ['quiet_hours_start', '21'],  // 9 PM
   ['quiet_hours_end', '6'],     // 6 AM
