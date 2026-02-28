@@ -7,11 +7,13 @@ import PlantingCalendar from './components/PlantingCalendar'
 import BedManager from './components/BedManager'
 import TaskManager from './components/TaskManager'
 import MoistureChart from './components/MoistureChart'
+import SettingsModal from './components/SettingsModal'
 
 function App() {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
   const [watchedKey, setWatchedKey] = useState(0)
+  const [showSettings, setShowSettings] = useState(false)
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'dark'
   })
@@ -73,6 +75,14 @@ function App() {
                 title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
               >
                 {theme === 'dark' ? '☀️' : '🌙'}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowSettings(true)}
+                style={{ marginLeft: '0.5rem' }}
+                title="Settings"
+              >
+                Settings
               </button>
             </>
           )}
@@ -139,6 +149,8 @@ function App() {
           <TaskManager key={`tasks-${refreshKey}`} />
         </div>
       </div>
+
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   )
 }

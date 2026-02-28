@@ -1,5 +1,6 @@
 const db = require('../models/db');
 const { getDisplayName } = require('./sensorNames');
+const { getSetting } = require('./alerts');
 
 const CACHE_DURATION_MINUTES = 15;
 
@@ -38,8 +39,8 @@ async function fetchOpenMeteo(endpoint, params) {
 
 // Generate watering advice data (shared between API route and cron notification)
 async function getWateringAdvice() {
-  const lat = process.env.GARDEN_LAT;
-  const lon = process.env.GARDEN_LON;
+  const lat = getSetting('garden_lat') || process.env.GARDEN_LAT;
+  const lon = getSetting('garden_lon') || process.env.GARDEN_LON;
 
   // Get current soil moisture readings
   const sensorReadings = db.prepare(`

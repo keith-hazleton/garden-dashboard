@@ -8,6 +8,7 @@ const plantRoutes = require('./routes/plants');
 const taskRoutes = require('./routes/tasks');
 const weatherRoutes = require('./routes/weather');
 const bedRoutes = require('./routes/beds');
+const settingsRoutes = require('./routes/settings');
 const { startScheduledNotifications } = require('./services/scheduledNotifications');
 
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/plants', plantRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/beds', bedRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Serve static frontend in production
 app.use(express.static(path.join(__dirname, '../frontend/dist')));

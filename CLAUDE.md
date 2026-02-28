@@ -34,7 +34,7 @@ The backend serves the frontend's built static files from `frontend/dist`. One p
 - **ntfy:** Push notifications for alerts
 
 ## Environment
-- `GARDEN_LAT`, `GARDEN_LON` in `backend/.env`
+- `GARDEN_LAT`, `GARDEN_LON` in `backend/.env` (overridable via Settings UI / `alert_settings` table)
 - Zone 10a plant data
 
 ## Conventions
@@ -59,3 +59,6 @@ The backend serves the frontend's built static files from `frontend/dist`. One p
 - All sensor API responses include `display_name`; frontend uses `display_name || sensor_name`
 - Backend PUT `/api/beds/:id` accepts `sensor_id` and `temp_sensor_id`
 - `BedManager.jsx` has inline sensor editing: "Edit Sensors" button toggles moisture/temp dropdowns, PUTs to backend on Save
+- `backend/routes/settings.js` — GET/PUT `/api/settings` reads/upserts `alert_settings` key-value pairs
+- `SettingsModal.jsx` — modal for editing notifications, alert behavior, quiet hours, location, and threshold profiles; opened via Settings button in header
+- Weather routes and watering advice resolve coordinates from DB (`garden_lat`/`garden_lon`) first, then fall back to env vars

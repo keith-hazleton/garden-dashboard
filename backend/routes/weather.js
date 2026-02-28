@@ -3,15 +3,13 @@ const router = express.Router();
 const db = require('../models/db');
 const { getDisplayName } = require('../services/sensorNames');
 const { getWateringAdvice } = require('../services/wateringAdvice');
+const { getSetting } = require('../services/alerts');
 
-// Garden coordinates from environment variables (required)
-const DEFAULT_LAT = process.env.GARDEN_LAT;
-const DEFAULT_LON = process.env.GARDEN_LON;
-
-if (!DEFAULT_LAT || !DEFAULT_LON) {
-  console.warn('WARNING: GARDEN_LAT and GARDEN_LON environment variables are not set. Weather features will not work.');
-} else {
-  console.log(`Weather configured for coordinates: ${DEFAULT_LAT}, ${DEFAULT_LON}`);
+// Resolve garden coordinates: DB settings first, then env vars
+function getCoordinates() {
+  const lat = getSetting('garden_lat') || process.env.GARDEN_LAT;
+  const lon = getSetting('garden_lon') || process.env.GARDEN_LON;
+  return { lat, lon };
 }
 
 const CACHE_DURATION_MINUTES = 15;
@@ -67,8 +65,9 @@ async function fetchOpenMeteo(endpoint, params) {
 // Get current weather conditions
 router.get('/current', async (req, res) => {
   try {
-    const lat = req.query.lat || DEFAULT_LAT;
-    const lon = req.query.lon || DEFAULT_LON;
+    const coords = getCoordinates();
+    const lat = req.query.lat || coords.lat;
+    const lon = req.query.lon || coords.lon;
 
     // Check cache first
     const cached = getCachedData('current');
@@ -110,8 +109,9 @@ router.get('/current', async (req, res) => {
 // Get forecast (7-day)
 router.get('/forecast', async (req, res) => {
   try {
-    const lat = req.query.lat || DEFAULT_LAT;
-    const lon = req.query.lon || DEFAULT_LON;
+    const coords = getCoordinates();
+    const lat = req.query.lat || coords.lat;
+    const lon = req.query.lon || coords.lon;
 
     // Check cache first
     const cached = getCachedData('forecast');
