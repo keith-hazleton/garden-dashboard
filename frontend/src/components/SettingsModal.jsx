@@ -149,6 +149,17 @@ function SettingsModal({ isOpen, onClose }) {
                   />
                 </label>
                 <label>
+                  <span>Seedling Graduation (weeks)</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="1"
+                    max="52"
+                    value={settings.seedling_graduation_weeks || ''}
+                    onChange={e => update('seedling_graduation_weeks', e.target.value)}
+                  />
+                </label>
+                <label>
                   <span>Default Profile</span>
                   <select
                     className="input"

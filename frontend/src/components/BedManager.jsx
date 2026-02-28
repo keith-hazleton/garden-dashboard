@@ -1,6 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import BedGrid from './BedGrid'
 
+const PROFILE_COLORS = {
+  cool_season: '#3b82f6',
+  warm_season: '#f59e0b',
+  seedling: '#22c55e'
+}
+
+const PROFILE_LABELS = {
+  cool_season: 'Cool Season',
+  warm_season: 'Warm Season',
+  seedling: 'Seedling'
+}
+
 function BedManager({ watchedKey }) {
   const [beds, setBeds] = useState([])
   const [selectedBed, setSelectedBed] = useState(null)
@@ -135,7 +147,8 @@ function BedManager({ watchedKey }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sensor_id: editingBed.sensor_id || null,
-          temp_sensor_id: editingBed.temp_sensor_id || null
+          temp_sensor_id: editingBed.temp_sensor_id || null,
+          profile: editingBed.profile || null
         })
       })
       if (res.ok) {
@@ -145,6 +158,22 @@ function BedManager({ watchedKey }) {
       }
     } catch (err) {
       console.error('Error updating bed sensors:', err)
+    }
+  }
+
+  const handleApplyProfile = async (profile) => {
+    try {
+      const res = await fetch(`/api/beds/${selectedBed}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile })
+      })
+      if (res.ok) {
+        fetchBeds()
+        fetchBedDetail()
+      }
+    } catch (err) {
+      console.error('Error updating bed profile:', err)
     }
   }
 
@@ -280,11 +309,24 @@ function BedManager({ watchedKey }) {
             flexWrap: 'wrap',
             gap: '0.5rem'
           }}>
-            <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontWeight: 600 }}>{currentBed.name}</span>
-              <span style={{ marginLeft: '0.75rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-                {currentBed.rows} × {currentBed.cols} grid
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+                {currentBed.rows} × {currentBed.cols}
               </span>
+              {bedDetail?.profile && (
+                <span style={{
+                  padding: '0.125rem 0.5rem',
+                  borderRadius: '9999px',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  background: `${PROFILE_COLORS[bedDetail.profile] || '#888'}33`,
+                  color: PROFILE_COLORS[bedDetail.profile] || '#888',
+                  border: `1px solid ${PROFILE_COLORS[bedDetail.profile] || '#888'}55`
+                }}>
+                  {PROFILE_LABELS[bedDetail.profile] || bedDetail.profile}
+                </span>
+              )}
             </div>
 
             {currentBed.current_moisture !== null && (
@@ -312,7 +354,8 @@ function BedManager({ watchedKey }) {
               <button
                 onClick={() => setEditingBed(editingBed ? null : {
                   sensor_id: currentBed.sensor_id || '',
-                  temp_sensor_id: currentBed.temp_sensor_id || ''
+                  temp_sensor_id: currentBed.temp_sensor_id || '',
+                  profile: bedDetail?.profile || 'warm_season'
                 })}
                 className="btn btn-secondary"
                 style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
@@ -328,6 +371,33 @@ function BedManager({ watchedKey }) {
               </button>
             </div>
           </div>
+
+          {/* Profile suggestion banner */}
+          {bedDetail?.suggested_profile && bedDetail.suggested_profile !== bedDetail.profile && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              padding: '0.5rem 0.75rem',
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '0.375rem',
+              fontSize: '0.75rem',
+              marginBottom: '0.5rem'
+            }}>
+              <span>
+                Suggested: <strong>{PROFILE_LABELS[bedDetail.suggested_profile]}</strong>
+                {' '}(current: {PROFILE_LABELS[bedDetail.profile] || bedDetail.profile})
+              </span>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem' }}
+                onClick={() => handleApplyProfile(bedDetail.suggested_profile)}
+              >
+                Apply
+              </button>
+            </div>
+          )}
 
           {/* Inline sensor edit */}
           {editingBed && (
@@ -364,6 +434,19 @@ function BedManager({ watchedKey }) {
                   {sensors.filter(s => s.sensor_id.includes('temp')).map(s => (
                     <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
                   ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Profile</label>
+                <select
+                  className="input"
+                  value={editingBed.profile}
+                  onChange={e => setEditingBed({ ...editingBed, profile: e.target.value })}
+                  style={{ minWidth: '140px' }}
+                >
+                  <option value="cool_season">Cool Season</option>
+                  <option value="warm_season">Warm Season</option>
+                  <option value="seedling">Seedling</option>
                 </select>
               </div>
               <button

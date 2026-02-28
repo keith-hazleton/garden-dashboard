@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
+const { computeSuggestedProfile } = require('../services/bedProfiles');
 
 // Get all beds with current moisture readings
 router.get('/', (req, res) => {
@@ -67,7 +68,8 @@ router.get('/:id', (req, res) => {
         p.category as plant_category,
         p.water_needs,
         p.days_to_maturity,
-        p.spacing_inches
+        p.spacing_inches,
+        p.frost_tolerant
       FROM bed_placements bp
       JOIN plants p ON bp.plant_id = p.id
       WHERE bp.bed_id = ?
@@ -113,8 +115,11 @@ router.get('/:id', (req, res) => {
       }
     }
 
+    const suggested_profile = computeSuggestedProfile(id);
+
     res.json({
       ...bed,
+      suggested_profile,
       placements,
       analysis: {
         water_needs: waterNeedsCounts,
@@ -156,7 +161,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, rows, cols, sensor_id, temp_sensor_id, notes } = req.body;
+    const { name, rows, cols, sensor_id, temp_sensor_id, profile, notes } = req.body;
 
     const existing = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     if (!existing) {
@@ -170,9 +175,10 @@ router.put('/:id', (req, res) => {
         cols = COALESCE(?, cols),
         sensor_id = ?,
         temp_sensor_id = ?,
+        profile = COALESCE(?, profile),
         notes = ?
       WHERE id = ?
-    `).run(name, rows, cols, sensor_id, temp_sensor_id, notes, id);
+    `).run(name, rows, cols, sensor_id, temp_sensor_id, profile, notes, id);
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     res.json(bed);
@@ -206,7 +212,7 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/placements', (req, res) => {
   try {
     const { id } = req.params;
-    const { plant_id, row, col, planted_date, notes } = req.body;
+    const { plant_id, row, col, planted_date, planting_method, notes } = req.body;
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     if (!bed) {
@@ -228,9 +234,9 @@ router.post('/:id/placements', (req, res) => {
     }
 
     const result = db.prepare(`
-      INSERT INTO bed_placements (bed_id, plant_id, row, col, planted_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, plant_id, row, col, planted_date || new Date().toISOString().split('T')[0], notes);
+      INSERT INTO bed_placements (bed_id, plant_id, row, col, planted_date, planting_method, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, plant_id, row, col, planted_date || new Date().toISOString().split('T')[0], planting_method || 'transplant', notes);
 
     // Get the placement with plant info
     const placement = db.prepare(`

@@ -14,6 +14,8 @@ function BedGrid({ bed, onUpdate }) {
   const [targetCell, setTargetCell] = useState(null)
   const [companionInfo, setCompanionInfo] = useState(null)
   const [draggedPlacement, setDraggedPlacement] = useState(null)
+  const [plantingMethod, setPlantingMethod] = useState('transplant')
+  const [pendingDrop, setPendingDrop] = useState(null) // { plant, row, col } for drag-drop confirmation
 
   useEffect(() => {
     async function fetchPlants() {
@@ -87,15 +89,18 @@ function BedGrid({ bed, onUpdate }) {
     await placePlant(plant)
   }
 
-  const placePlant = async (plant) => {
+  const placePlant = async (plant, method, cell) => {
+    const useCell = cell || targetCell
+    const useMethod = method || plantingMethod
     try {
       const res = await fetch(`/api/beds/${bed.id}/placements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           plant_id: plant.id,
-          row: targetCell.row,
-          col: targetCell.col
+          row: useCell.row,
+          col: useCell.col,
+          planting_method: useMethod
         })
       })
       if (res.ok) {
@@ -104,6 +109,8 @@ function BedGrid({ bed, onUpdate }) {
         setCompanionInfo(null)
         setSelectedPlant(null)
         setSearchTerm('')
+        setPlantingMethod('transplant')
+        setPendingDrop(null)
         onUpdate()
       }
     } catch (err) {
@@ -137,19 +144,9 @@ function BedGrid({ bed, onUpdate }) {
       try {
         const data = JSON.parse(jsonData)
         if (data.type === 'new-plant' && data.plant) {
-          // Place new plant directly
-          const res = await fetch(`/api/beds/${bed.id}/placements`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              plant_id: data.plant.id,
-              row,
-              col
-            })
-          })
-          if (res.ok) {
-            onUpdate()
-          }
+          // Show confirmation bar for seed/transplant choice
+          setPendingDrop({ plant: data.plant, row, col })
+          setPlantingMethod('transplant')
           return
         }
       } catch (err) {
@@ -245,7 +242,7 @@ function BedGrid({ bed, onUpdate }) {
                 transition: 'all 0.2s'
               }}
               title={placement
-                ? `${placement.plant_name}${placement.plant_variety ? ` (${placement.plant_variety})` : ''}\nWater: ${placement.water_needs}\nClick to remove, drag to move`
+                ? `${placement.plant_name}${placement.plant_variety ? ` (${placement.plant_variety})` : ''}\nWater: ${placement.water_needs}\nMethod: ${placement.planting_method || 'transplant'}\nClick to remove, drag to move`
                 : 'Click to add plant'}
             >
               {placement ? (
@@ -270,6 +267,17 @@ function BedGrid({ bed, onUpdate }) {
                     }}>
                       {placement.plant_variety.slice(0, 8)}
                     </div>
+                  )}
+                  {placement.planting_method === 'seed' && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '1px',
+                      left: '2px',
+                      fontSize: '0.5rem',
+                      fontWeight: 700,
+                      color: 'var(--accent-green)',
+                      lineHeight: 1
+                    }}>S</div>
                   )}
                   {hasIssue && (
                     <div style={{
@@ -300,7 +308,59 @@ function BedGrid({ bed, onUpdate }) {
         <span><span style={{ color: WATER_COLORS.medium }}>■</span> Medium</span>
         <span><span style={{ color: WATER_COLORS.low }}>■</span> Low water</span>
         <span><span style={{ color: 'var(--accent-red)' }}>□</span> Companion issue</span>
+        <span><span style={{ color: 'var(--accent-green)', fontWeight: 700 }}>S</span> Seed</span>
       </div>
+
+      {/* Drag-drop confirmation bar */}
+      {pendingDrop && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          padding: '0.5rem 0.75rem',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--accent-blue)',
+          borderRadius: '0.375rem',
+          marginBottom: '1rem',
+          fontSize: '0.8rem'
+        }}>
+          <span>
+            Place <strong>{pendingDrop.plant.name}</strong> at ({pendingDrop.row + 1}, {pendingDrop.col + 1}):
+          </span>
+          {['transplant', 'seed'].map(m => (
+            <button
+              key={m}
+              onClick={() => setPlantingMethod(m)}
+              style={{
+                padding: '0.25rem 0.5rem',
+                background: plantingMethod === m ? 'var(--accent-blue)' : 'var(--bg-secondary)',
+                border: 'none',
+                borderRadius: '0.25rem',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: plantingMethod === m ? 600 : 400
+              }}
+            >
+              {m === 'transplant' ? 'Transplant' : 'Seed'}
+            </button>
+          ))}
+          <button
+            className="btn btn-primary"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+            onClick={() => placePlant(pendingDrop.plant, plantingMethod, { row: pendingDrop.row, col: pendingDrop.col })}
+          >
+            Confirm
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+            onClick={() => { setPendingDrop(null); setPlantingMethod('transplant') }}
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* Plant picker modal */}
       {showPlantPicker && (
@@ -340,6 +400,27 @@ function BedGrid({ bed, onUpdate }) {
               <h3 style={{ marginBottom: '0.5rem' }}>
                 Add plant to cell ({targetCell?.row + 1}, {targetCell?.col + 1})
               </h3>
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                {['transplant', 'seed'].map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setPlantingMethod(m)}
+                    style={{
+                      flex: 1,
+                      padding: '0.375rem',
+                      background: plantingMethod === m ? 'var(--accent-blue)' : 'var(--bg-card)',
+                      border: 'none',
+                      borderRadius: '0.375rem',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: plantingMethod === m ? 600 : 400
+                    }}
+                  >
+                    {m === 'transplant' ? 'Transplant' : 'Seed'}
+                  </button>
+                ))}
+              </div>
               <input
                 type="text"
                 className="input"
@@ -369,7 +450,7 @@ function BedGrid({ bed, onUpdate }) {
                 <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
                   <button
                     className="btn btn-primary"
-                    onClick={() => placePlant(selectedPlant)}
+                    onClick={() => placePlant(selectedPlant, plantingMethod, targetCell)}
                   >
                     Place Anyway
                   </button>

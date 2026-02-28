@@ -142,6 +142,7 @@ db.exec(`
     row INTEGER NOT NULL,
     col INTEGER NOT NULL,
     planted_date DATE DEFAULT CURRENT_DATE,
+    planting_method TEXT DEFAULT 'transplant', -- seed or transplant
     notes TEXT,
     FOREIGN KEY (bed_id) REFERENCES beds(id) ON DELETE CASCADE,
     FOREIGN KEY (plant_id) REFERENCES plants(id) ON DELETE CASCADE,
@@ -1086,7 +1087,10 @@ const alertSettings = [
   })],
 
   // Default profile for sensors not assigned to a bed
-  ['default_profile', 'warm_season']
+  ['default_profile', 'warm_season'],
+
+  // Weeks before seeds graduate from seedling profile
+  ['seedling_graduation_weeks', '4']
 ];
 
 const insertSettings = db.transaction((settings) => {
@@ -1097,6 +1101,19 @@ const insertSettings = db.transaction((settings) => {
 
 insertSettings(alertSettings);
 console.log('Seeded alert settings with ntfy configuration');
+
+// === Idempotent migrations for existing databases ===
+
+// Add planting_method column to bed_placements
+try {
+  db.exec(`ALTER TABLE bed_placements ADD COLUMN planting_method TEXT DEFAULT 'transplant'`);
+  console.log('Migration: added planting_method to bed_placements');
+} catch (e) {
+  if (!e.message.includes('duplicate column')) throw e;
+}
+
+// Add seedling_graduation_weeks setting (INSERT OR IGNORE won't overwrite user values)
+db.prepare(`INSERT OR IGNORE INTO alert_settings (key, value) VALUES (?, ?)`).run('seedling_graduation_weeks', '4');
 
 db.close();
 console.log('Database setup complete!');

@@ -1,6 +1,8 @@
 const cron = require('node-cron');
 const { getWateringAdvice } = require('./wateringAdvice');
 const { sendNtfyNotification } = require('./alerts');
+const { computeSuggestedProfile } = require('./bedProfiles');
+const db = require('../models/db');
 
 // Format watering advice into a notification message
 function formatWateringMessage(advice) {
@@ -84,6 +86,57 @@ async function sendMorningWateringReport() {
   }
 }
 
+async function checkSeedlingGraduation() {
+  try {
+    const seedlingBeds = db.prepare(
+      `SELECT id, name FROM beds WHERE profile = 'seedling'`
+    ).all();
+
+    if (seedlingBeds.length === 0) return;
+
+    const graduated = [];
+    for (const bed of seedlingBeds) {
+      const suggested = computeSuggestedProfile(bed.id);
+      if (suggested && suggested !== 'seedling') {
+        db.prepare('UPDATE beds SET profile = ? WHERE id = ?').run(suggested, bed.id);
+        graduated.push({ name: bed.name, newProfile: suggested });
+      }
+    }
+
+    if (graduated.length === 0) return;
+
+    // Send notification about graduated beds
+    const { getSetting } = require('./alerts');
+    const enabled = getSetting('ntfy_enabled');
+    if (enabled !== 'true') return;
+
+    const server = getSetting('ntfy_server') || 'https://ntfy.sh';
+    const topic = getSetting('ntfy_topic');
+    if (!topic) return;
+
+    const lines = graduated.map(
+      g => `${g.name}: seedling → ${g.newProfile.replace('_', ' ')}`
+    );
+    const message = `Seedling graduation:\n${lines.join('\n')}`;
+
+    const response = await fetch(`${server}/${topic}`, {
+      method: 'POST',
+      headers: {
+        'Title': 'Bed Profile Updated',
+        'Priority': 'low',
+        'Tags': 'seedling,tada'
+      },
+      body: message
+    });
+
+    if (response.ok) {
+      console.log(`Seedling graduation: ${graduated.length} bed(s) updated`);
+    }
+  } catch (error) {
+    console.error('Error checking seedling graduation:', error);
+  }
+}
+
 function startScheduledNotifications() {
   // Every day at 7:00 AM
   cron.schedule('0 7 * * *', () => {
@@ -91,7 +144,13 @@ function startScheduledNotifications() {
     sendMorningWateringReport();
   });
 
-  console.log('Scheduled notifications: morning watering report at 7:00 AM');
+  // Every day at 7:05 AM — check if seedling beds should graduate
+  cron.schedule('5 7 * * *', () => {
+    console.log('Checking seedling graduation...');
+    checkSeedlingGraduation();
+  });
+
+  console.log('Scheduled notifications: morning watering report at 7:00 AM, seedling graduation at 7:05 AM');
 }
 
 module.exports = { startScheduledNotifications };

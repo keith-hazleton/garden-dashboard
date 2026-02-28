@@ -51,14 +51,20 @@ The backend serves the frontend's built static files from `frontend/dist`. One p
 
 ## Current / Recent Changes
 - `backend/services/wateringAdvice.js` — shared watering advice logic (used by both API route and cron notification)
-- `backend/services/scheduledNotifications.js` — node-cron job sends morning watering report via ntfy at 7 AM daily (bypasses quiet hours)
+- `backend/services/scheduledNotifications.js` — node-cron jobs: morning watering report at 7 AM, seedling graduation check at 7:05 AM
 - `backend/routes/weather.js` `/watering-advice` endpoint delegates to shared `getWateringAdvice()`
 - History chart (`MoistureChart.jsx`) shows both moisture and temperature with dual y-axes (both dynamic/auto-scaled)
 - Beds support both `sensor_id` (moisture) and `temp_sensor_id` (temperature) columns
 - `backend/services/sensorNames.js` resolves sensor IDs to bed-friendly display names (e.g., "Raised Bed 1 Moisture")
 - All sensor API responses include `display_name`; frontend uses `display_name || sensor_name`
-- Backend PUT `/api/beds/:id` accepts `sensor_id` and `temp_sensor_id`
-- `BedManager.jsx` has inline sensor editing: "Edit Sensors" button toggles moisture/temp dropdowns, PUTs to backend on Save
+- Backend PUT `/api/beds/:id` accepts `sensor_id`, `temp_sensor_id`, and `profile`
+- `BedManager.jsx` has inline sensor editing: "Edit Sensors" button toggles moisture/temp/profile controls, PUTs to backend on Save
 - `backend/routes/settings.js` — GET/PUT `/api/settings` reads/upserts `alert_settings` key-value pairs
-- `SettingsModal.jsx` — modal for editing notifications, alert behavior, quiet hours, location, and threshold profiles; opened via Settings button in header
+- `SettingsModal.jsx` — modal for editing notifications, alert behavior (including seedling graduation weeks), quiet hours, location, and threshold profiles
 - Weather routes and watering advice resolve coordinates from DB (`garden_lat`/`garden_lon`) first, then fall back to env vars
+- `bed_placements` has `planting_method` column (`seed` or `transplant`, defaults to `transplant`)
+- `backend/services/bedProfiles.js` — `computeSuggestedProfile(bedId)` returns suggested profile based on plant frost_tolerant flags and seed age
+- GET `/api/beds/:id` returns `suggested_profile` alongside bed data; placements include `frost_tolerant`
+- `BedGrid.jsx` — seed/transplant toggle in plant picker; drag-drop shows confirmation bar with method choice; "S" indicator on seed cells
+- `BedManager.jsx` — profile colored pill badge in header; blue suggestion banner when suggested !== current profile; manual profile dropdown in edit panel
+- Seedling graduation cron auto-updates bed profiles when seeds mature past `seedling_graduation_weeks` (default 4), sends ntfy notification
