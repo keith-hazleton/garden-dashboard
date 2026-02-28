@@ -13,32 +13,37 @@ function getSetting(key) {
  * - Returns null for empty beds
  */
 function computeSuggestedProfile(bedId) {
-  const placements = db.prepare(`
-    SELECT bp.planting_method, bp.planted_date, p.frost_tolerant
-    FROM bed_placements bp
-    JOIN plants p ON bp.plant_id = p.id
-    WHERE bp.bed_id = ?
-  `).all(bedId);
+  try {
+    const placements = db.prepare(`
+      SELECT bp.planting_method, bp.planted_date, p.frost_tolerant
+      FROM bed_placements bp
+      JOIN plants p ON bp.plant_id = p.id
+      WHERE bp.bed_id = ?
+    `).all(bedId);
 
-  if (placements.length === 0) return null;
+    if (placements.length === 0) return null;
 
-  const graduationWeeks = parseInt(getSetting('seedling_graduation_weeks')) || 4;
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - graduationWeeks * 7);
-  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+    const graduationWeeks = parseInt(getSetting('seedling_graduation_weeks')) || 4;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - graduationWeeks * 7);
+    const cutoffStr = cutoffDate.toISOString().split('T')[0];
 
-  // Check if any seed placements are still within the graduation window
-  const hasActiveSeedlings = placements.some(
-    p => p.planting_method === 'seed' && p.planted_date >= cutoffStr
-  );
+    // Check if any seed placements are still within the graduation window
+    const hasActiveSeedlings = placements.some(
+      p => p.planting_method === 'seed' && p.planted_date >= cutoffStr
+    );
 
-  if (hasActiveSeedlings) return 'seedling';
+    if (hasActiveSeedlings) return 'seedling';
 
-  // Check if all plants are frost tolerant
-  const allFrostTolerant = placements.every(p => p.frost_tolerant);
-  if (allFrostTolerant) return 'cool_season';
+    // Check if all plants are frost tolerant
+    const allFrostTolerant = placements.every(p => p.frost_tolerant);
+    if (allFrostTolerant) return 'cool_season';
 
-  return 'warm_season';
+    return 'warm_season';
+  } catch (e) {
+    console.error('Error computing suggested profile:', e.message);
+    return null;
+  }
 }
 
 module.exports = { computeSuggestedProfile };
