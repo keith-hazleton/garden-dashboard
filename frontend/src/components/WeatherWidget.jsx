@@ -153,7 +153,8 @@ function WeatherIcon({ code, size = 64 }) {
 }
 
 function formatDay(dateStr) {
-  const date = new Date(dateStr)
+  const [y, m, d] = dateStr.split('-').map(Number)
+  const date = new Date(y, m - 1, d)
   const today = new Date()
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
