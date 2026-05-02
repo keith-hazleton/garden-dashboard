@@ -13,10 +13,11 @@ router.post('/ecowitt', (req, res) => {
     // Log raw data for debugging (remove in production)
     console.log('Ecowitt data received:', JSON.stringify(data, null, 2));
 
-    // Ecowitt sends:
-    // - Soil moisture as soilmoisture1, soilmoisture2, etc. (battery: soilbatt1, etc.)
-    // - Soil temperature as tf_ch1, tf_ch2, etc. (battery: tf_batt1, etc.)
-    //   or sometimes as soiltemp1f (Fahrenheit), soiltemp1c (Celsius)
+    // Ecowitt field families per channel N (1..16):
+    // - WH51 (moisture-only):     soilmoisture{N}            battery: soilbatt{N}
+    // - WN34 (temp-only):         tf_ch{N} or soiltemp{N}f   battery: tf_batt{N} / soiltempbatt{N}
+    // - WH52 (moisture+temp+EC):  soil_ec_hum{N}, soil_ec_temp{N}, soil_ec{N}
+    //                             battery: soil_ec_batt{N} (voltage, e.g. "1.76")
     const insertMoisture = db.prepare(`
       INSERT INTO sensor_readings (sensor_id, sensor_name, sensor_type, moisture_percent, battery_status)
       VALUES (?, ?, 'moisture', ?, ?)
@@ -27,43 +28,54 @@ router.post('/ecowitt', (req, res) => {
       VALUES (?, ?, 'temperature', ?, ?)
     `);
 
-    const insertMany = db.transaction(() => {
-      // Check for up to 8 soil moisture channels
-      for (let i = 1; i <= 8; i++) {
-        const moistureKey = `soilmoisture${i}`;
-        const batteryKey = `soilbatt${i}`;
+    const insertEc = db.prepare(`
+      INSERT INTO sensor_readings (sensor_id, sensor_name, sensor_type, ec_us_cm, battery_status)
+      VALUES (?, ?, 'ec', ?, ?)
+    `);
 
-        if (data[moistureKey] !== undefined) {
-          insertMoisture.run(
-            `soil_moisture_${i}`,
-            `Soil Moisture ${i}`,
-            parseFloat(data[moistureKey]),
-            data[batteryKey] || 'unknown'
-          );
-        }
+    // Resolve a moisture reading + battery for channel i across WH51 and WH52
+    function resolveMoisture(i) {
+      if (data[`soilmoisture${i}`] !== undefined) {
+        return { value: parseFloat(data[`soilmoisture${i}`]), battery: data[`soilbatt${i}`] };
       }
+      if (data[`soil_ec_hum${i}`] !== undefined) {
+        return { value: parseFloat(data[`soil_ec_hum${i}`]), battery: data[`soil_ec_batt${i}`] };
+      }
+      return null;
+    }
 
-      // Check for up to 8 soil temperature channels
-      // Ecowitt uses tf_ch1 (temp F channel) or soiltemp1f format
-      for (let i = 1; i <= 8; i++) {
-        // Try tf_ch format first (common for WN34 sensors)
-        let tempKey = `tf_ch${i}`;
-        let batteryKey = `tf_batt${i}`;
-        let tempValue = data[tempKey];
+    // Resolve a temperature reading + battery for channel i across WN34 and WH52
+    function resolveTemperature(i) {
+      if (data[`tf_ch${i}`] !== undefined) {
+        return { value: parseFloat(data[`tf_ch${i}`]), battery: data[`tf_batt${i}`] };
+      }
+      if (data[`soiltemp${i}f`] !== undefined) {
+        return { value: parseFloat(data[`soiltemp${i}f`]), battery: data[`soiltempbatt${i}`] };
+      }
+      if (data[`soil_ec_temp${i}`] !== undefined) {
+        return { value: parseFloat(data[`soil_ec_temp${i}`]), battery: data[`soil_ec_batt${i}`] };
+      }
+      return null;
+    }
 
-        // Try soiltemp format if tf_ch not found
-        if (tempValue === undefined) {
-          tempKey = `soiltemp${i}f`;
-          batteryKey = `soiltempbatt${i}`;
-          tempValue = data[tempKey];
+    const insertMany = db.transaction(() => {
+      for (let i = 1; i <= 16; i++) {
+        const m = resolveMoisture(i);
+        if (m !== null) {
+          insertMoisture.run(`soil_moisture_${i}`, `Soil Moisture ${i}`, m.value, m.battery || 'unknown');
         }
 
-        if (tempValue !== undefined) {
-          insertTemperature.run(
-            `soil_temp_${i}`,
-            `Soil Temp ${i}`,
-            parseFloat(tempValue),
-            data[batteryKey] || 'unknown'
+        const t = resolveTemperature(i);
+        if (t !== null) {
+          insertTemperature.run(`soil_temp_${i}`, `Soil Temp ${i}`, t.value, t.battery || 'unknown');
+        }
+
+        if (data[`soil_ec${i}`] !== undefined) {
+          insertEc.run(
+            `soil_ec_${i}`,
+            `Soil EC ${i}`,
+            parseFloat(data[`soil_ec${i}`]),
+            data[`soil_ec_batt${i}`] || 'unknown'
           );
         }
       }
@@ -72,30 +84,17 @@ router.post('/ecowitt', (req, res) => {
     insertMany();
 
     // Check alerts for each sensor (async, don't block response)
-    // Moisture sensors
-    for (let i = 1; i <= 8; i++) {
-      const moistureKey = `soilmoisture${i}`;
-      if (data[moistureKey] !== undefined) {
-        checkMoistureAlert(
-          `soil_moisture_${i}`,
-          `Soil Moisture ${i}`,
-          parseFloat(data[moistureKey])
-        ).catch(err => console.error('Moisture alert error:', err));
+    for (let i = 1; i <= 16; i++) {
+      const m = resolveMoisture(i);
+      if (m !== null) {
+        checkMoistureAlert(`soil_moisture_${i}`, `Soil Moisture ${i}`, m.value)
+          .catch(err => console.error('Moisture alert error:', err));
       }
-    }
 
-    // Temperature sensors
-    for (let i = 1; i <= 8; i++) {
-      let tempValue = data[`tf_ch${i}`];
-      if (tempValue === undefined) {
-        tempValue = data[`soiltemp${i}f`];
-      }
-      if (tempValue !== undefined) {
-        checkTemperatureAlert(
-          `soil_temp_${i}`,
-          `Soil Temp ${i}`,
-          parseFloat(tempValue)
-        ).catch(err => console.error('Temperature alert error:', err));
+      const t = resolveTemperature(i);
+      if (t !== null) {
+        checkTemperatureAlert(`soil_temp_${i}`, `Soil Temp ${i}`, t.value)
+          .catch(err => console.error('Temperature alert error:', err));
       }
     }
 
@@ -116,6 +115,7 @@ router.get('/latest', (req, res) => {
         sensor_type,
         moisture_percent,
         temperature_f,
+        ec_us_cm,
         battery_status,
         timestamp
       FROM sensor_readings
@@ -148,6 +148,7 @@ router.get('/history/:sensorId', (req, res) => {
         sensor_type,
         moisture_percent,
         temperature_f,
+        ec_us_cm,
         timestamp
       FROM sensor_readings
       WHERE sensor_id = ?

@@ -23,6 +23,14 @@ function getDisplayName(sensorId, fallbackName) {
     return `${tempBed.name} Temp`;
   }
 
+  const ecBed = db.prepare(
+    'SELECT name FROM beds WHERE ec_sensor_id = ?'
+  ).get(sensorId);
+
+  if (ecBed) {
+    return `${ecBed.name} EC`;
+  }
+
   return fallbackName || sensorId;
 }
 

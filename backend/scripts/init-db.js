@@ -22,9 +22,10 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sensor_id TEXT NOT NULL,
     sensor_name TEXT,
-    sensor_type TEXT DEFAULT 'moisture', -- moisture, temperature, or combo
+    sensor_type TEXT DEFAULT 'moisture', -- moisture, temperature, ec, or combo
     moisture_percent REAL,
     temperature_f REAL,
+    ec_us_cm REAL,
     battery_status TEXT,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -129,6 +130,7 @@ db.exec(`
     cols INTEGER NOT NULL DEFAULT 8,
     sensor_id TEXT, -- links to moisture sensor
     temp_sensor_id TEXT, -- links to temperature sensor
+    ec_sensor_id TEXT, -- links to EC sensor (WH52)
     profile TEXT DEFAULT 'warm_season', -- cool_season, warm_season, seedling
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -166,6 +168,33 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_plants_name_variety ON plants(name, variety);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_planting_windows_unique ON planting_windows(plant_id, window_type);
   CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_unique ON companion_relationships(plant_name_a, plant_name_b);
+
+  -- Cameras
+  CREATE TABLE IF NOT EXISTS cameras (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    interval_minutes INTEGER DEFAULT 15,
+    resolution TEXT DEFAULT '1920x1080',
+    enabled INTEGER DEFAULT 1,
+    bed_id INTEGER,
+    last_seen_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (bed_id) REFERENCES beds(id) ON DELETE SET NULL
+  );
+
+  -- Camera frames
+  CREATE TABLE IF NOT EXISTS camera_frames (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    camera_id TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    captured_at DATETIME NOT NULL,
+    file_size INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (camera_id) REFERENCES cameras(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_camera_frames_lookup
+    ON camera_frames(camera_id, captured_at DESC);
 `);
 
 console.log('Database initialized at:', dbPath);

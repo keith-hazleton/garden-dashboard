@@ -15,6 +15,28 @@ function getTempStatus(tempF) {
   return 'ideal'
 }
 
+function getEcStatus(ec) {
+  if (ec < 500) return 'depleted'
+  if (ec < 2000) return 'ideal'
+  if (ec < 4000) return 'high'
+  return 'critical'
+}
+
+const EC_COLORS = {
+  depleted: 'var(--accent-yellow)',
+  ideal: 'var(--accent-green)',
+  high: '#f97316',
+  critical: 'var(--accent-red)',
+}
+
+// WH52 reports battery as a voltage string (e.g. "1.76"). 1.4V threshold targets
+// the 1× AA pack — tune as needed. Older sensors send '0'/'low' strings.
+function isBatteryLow(status) {
+  if (status === '0' || status === 'low') return true
+  const v = parseFloat(status)
+  return !isNaN(v) && v < 1.4
+}
+
 const STATUS_COLORS = {
   critical: 'var(--accent-red)',
   low: 'var(--accent-yellow)',
@@ -77,7 +99,7 @@ function MoistureRingGauge({ percent, status }) {
 
 function MoistureSensorCard({ sensor }) {
   const status = getMoistureStatus(sensor.moisture_percent)
-  const batteryLow = sensor.battery_status === '0' || sensor.battery_status === 'low'
+  const batteryLow = isBatteryLow(sensor.battery_status)
 
   return (
     <div className="sensor-card">
@@ -106,7 +128,7 @@ function MoistureSensorCard({ sensor }) {
 
 function TemperatureSensorCard({ sensor }) {
   const status = getTempStatus(sensor.temperature_f)
-  const batteryLow = sensor.battery_status === '0' || sensor.battery_status === 'low'
+  const batteryLow = isBatteryLow(sensor.battery_status)
 
   return (
     <div className="sensor-card">
@@ -128,6 +150,39 @@ function TemperatureSensorCard({ sensor }) {
         {status === 'ideal' && 'Ideal growing temperature'}
         {status === 'warm' && 'Warm - good for warm season crops'}
         {status === 'hot' && 'Hot - may stress plants'}
+      </div>
+
+      <div className="sensor-timestamp">
+        {new Date(sensor.timestamp + 'Z').toLocaleString()}
+      </div>
+    </div>
+  )
+}
+
+function EcSensorCard({ sensor }) {
+  const status = getEcStatus(sensor.ec_us_cm)
+  const batteryLow = isBatteryLow(sensor.battery_status)
+  const color = EC_COLORS[status]
+
+  return (
+    <div className="sensor-card">
+      <div className="sensor-header">
+        <span className="sensor-name">{sensor.display_name || sensor.sensor_name}</span>
+        <span className={`battery-indicator ${batteryLow ? 'low' : ''}`}>
+          {batteryLow ? 'Low' : 'OK'}
+        </span>
+      </div>
+
+      <div className="temp-value" style={{ color }}>
+        <span className="temp-status-dot" style={{ background: color }} />
+        {Math.round(sensor.ec_us_cm)} μS/cm
+      </div>
+
+      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+        {status === 'depleted' && 'Low salinity — soil may need fertilizer'}
+        {status === 'ideal' && 'Ideal nutrient level'}
+        {status === 'high' && 'High salinity — sensitive plants may stress'}
+        {status === 'critical' && 'Very high — flush soil with deep watering'}
       </div>
 
       <div className="sensor-timestamp">
@@ -184,8 +239,9 @@ function SensorCards() {
     )
   }
 
-  const moistureSensors = sensors.filter(s => s.sensor_type === 'moisture' || s.moisture_percent !== null)
-  const tempSensors = sensors.filter(s => s.sensor_type === 'temperature' || (s.temperature_f !== null && s.moisture_percent === null))
+  const moistureSensors = sensors.filter(s => s.sensor_type === 'moisture')
+  const tempSensors = sensors.filter(s => s.sensor_type === 'temperature')
+  const ecSensors = sensors.filter(s => s.sensor_type === 'ec')
 
   return (
     <div className="sensor-sections">
@@ -205,6 +261,16 @@ function SensorCards() {
           ))}
         </div>
       </div>
+      {ecSensors.length > 0 && (
+        <div className="sensor-section">
+          <h3 className="sensor-section-title">Soil EC</h3>
+          <div className="sensor-section-grid">
+            {ecSensors.map(sensor => (
+              <EcSensorCard key={sensor.sensor_id} sensor={sensor} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

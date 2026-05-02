@@ -13,7 +13,13 @@ router.get('/', (req, res) => {
          ORDER BY timestamp DESC LIMIT 1) as current_moisture,
         (SELECT timestamp FROM sensor_readings
          WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at
+         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at,
+        (SELECT ec_us_cm FROM sensor_readings
+         WHERE sensor_id = b.ec_sensor_id
+         ORDER BY timestamp DESC LIMIT 1) as current_ec,
+        (SELECT timestamp FROM sensor_readings
+         WHERE sensor_id = b.ec_sensor_id
+         ORDER BY timestamp DESC LIMIT 1) as ec_updated_at
       FROM beds b
       ORDER BY b.name
     `).all();
@@ -50,7 +56,13 @@ router.get('/:id', (req, res) => {
          ORDER BY timestamp DESC LIMIT 1) as current_moisture,
         (SELECT timestamp FROM sensor_readings
          WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at
+         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at,
+        (SELECT ec_us_cm FROM sensor_readings
+         WHERE sensor_id = b.ec_sensor_id
+         ORDER BY timestamp DESC LIMIT 1) as current_ec,
+        (SELECT timestamp FROM sensor_readings
+         WHERE sensor_id = b.ec_sensor_id
+         ORDER BY timestamp DESC LIMIT 1) as ec_updated_at
       FROM beds b
       WHERE b.id = ?
     `).get(id);
@@ -138,16 +150,16 @@ router.get('/:id', (req, res) => {
 // Create a new bed
 router.post('/', (req, res) => {
   try {
-    const { name, rows, cols, sensor_id, temp_sensor_id, notes } = req.body;
+    const { name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, notes } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Bed name is required' });
     }
 
     const result = db.prepare(`
-      INSERT INTO beds (name, rows, cols, sensor_id, temp_sensor_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(name, rows || 4, cols || 8, sensor_id, temp_sensor_id, notes);
+      INSERT INTO beds (name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, rows || 4, cols || 8, sensor_id, temp_sensor_id, ec_sensor_id, notes);
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(bed);
@@ -161,7 +173,7 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, rows, cols, sensor_id, temp_sensor_id, profile, notes } = req.body;
+    const { name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, profile, notes } = req.body;
 
     const existing = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     if (!existing) {
@@ -175,10 +187,11 @@ router.put('/:id', (req, res) => {
         cols = COALESCE(?, cols),
         sensor_id = ?,
         temp_sensor_id = ?,
+        ec_sensor_id = ?,
         profile = COALESCE(?, profile),
         notes = ?
       WHERE id = ?
-    `).run(name, rows, cols, sensor_id, temp_sensor_id, profile, notes, id);
+    `).run(name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, profile, notes, id);
 
     const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     res.json(bed);

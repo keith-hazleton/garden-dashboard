@@ -13,6 +13,13 @@ const PROFILE_LABELS = {
   seedling: 'Seedling'
 }
 
+function ecColor(ec) {
+  if (ec < 500) return 'var(--accent-yellow)'
+  if (ec < 2000) return 'var(--accent-green)'
+  if (ec < 4000) return '#f97316'
+  return 'var(--accent-red)'
+}
+
 function BedManager({ watchedKey }) {
   const [beds, setBeds] = useState([])
   const [selectedBed, setSelectedBed] = useState(null)
@@ -21,7 +28,7 @@ function BedManager({ watchedKey }) {
   const [watchedPlants, setWatchedPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '' })
+  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '', ec_sensor_id: '' })
   const [expandedPlant, setExpandedPlant] = useState(null)
   const [companionInfo, setCompanionInfo] = useState(null)
   const [editingBed, setEditingBed] = useState(null)
@@ -114,7 +121,7 @@ function BedManager({ watchedKey }) {
       if (res.ok) {
         const bed = await res.json()
         setShowCreateForm(false)
-        setNewBed({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '' })
+        setNewBed({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '', ec_sensor_id: '' })
         fetchBeds()
         setSelectedBed(bed.id)
       }
@@ -148,6 +155,7 @@ function BedManager({ watchedKey }) {
         body: JSON.stringify({
           sensor_id: editingBed.sensor_id || null,
           temp_sensor_id: editingBed.temp_sensor_id || null,
+          ec_sensor_id: editingBed.ec_sensor_id || null,
           profile: editingBed.profile || null
         })
       })
@@ -289,6 +297,19 @@ function BedManager({ watchedKey }) {
                 ))}
               </select>
             </div>
+            <div>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>EC Sensor</label>
+              <select
+                className="input"
+                value={newBed.ec_sensor_id}
+                onChange={e => setNewBed({ ...newBed, ec_sensor_id: e.target.value })}
+              >
+                <option value="">No sensor</option>
+                {sensors.filter(s => s.sensor_id.startsWith('soil_ec_')).map(s => (
+                  <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
             <button type="submit" className="btn btn-primary">Create Bed</button>
@@ -350,11 +371,28 @@ function BedManager({ watchedKey }) {
               </div>
             )}
 
+            {currentBed.current_ec != null && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.25rem 0.75rem',
+                background: 'var(--bg-card)',
+                borderRadius: '9999px',
+                fontSize: '0.875rem'
+              }}>
+                <span style={{ color: ecColor(currentBed.current_ec) }}>
+                  ⚡ {Math.round(currentBed.current_ec)} μS/cm
+                </span>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => setEditingBed(editingBed ? null : {
                   sensor_id: currentBed.sensor_id || '',
                   temp_sensor_id: currentBed.temp_sensor_id || '',
+                  ec_sensor_id: currentBed.ec_sensor_id || '',
                   profile: bedDetail?.profile || 'warm_season'
                 })}
                 className="btn btn-secondary"
@@ -432,6 +470,20 @@ function BedManager({ watchedKey }) {
                 >
                   <option value="">No sensor</option>
                   {sensors.filter(s => s.sensor_id.includes('temp')).map(s => (
+                    <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>EC Sensor</label>
+                <select
+                  className="input"
+                  value={editingBed.ec_sensor_id}
+                  onChange={e => setEditingBed({ ...editingBed, ec_sensor_id: e.target.value })}
+                  style={{ minWidth: '180px' }}
+                >
+                  <option value="">No sensor</option>
+                  {sensors.filter(s => s.sensor_id.startsWith('soil_ec_')).map(s => (
                     <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
                   ))}
                 </select>
