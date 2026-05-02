@@ -134,8 +134,13 @@ async function sendNtfyNotification(title, message, priority = 'default', tags =
 
 // Check moisture reading and send alerts if needed
 async function checkMoistureAlert(sensorId, sensorName, moisturePercent) {
-  // Find bed associated with this sensor to get profile
-  const bed = db.prepare('SELECT profile FROM beds WHERE sensor_id = ?').get(sensorId);
+  // Find bed associated with this sensor (multi-sensor JSON array, with legacy fallback)
+  const bed = db.prepare(`
+    SELECT b.profile
+    FROM beds b, json_each(COALESCE(b.sensor_ids, json_array(b.sensor_id))) je
+    WHERE je.value = ?
+    LIMIT 1
+  `).get(sensorId);
   const profileName = bed?.profile || getSetting('default_profile') || 'warm_season';
   const profile = getProfile(profileName);
 

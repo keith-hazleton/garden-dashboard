@@ -128,7 +128,8 @@ db.exec(`
     name TEXT NOT NULL,
     rows INTEGER NOT NULL DEFAULT 4,
     cols INTEGER NOT NULL DEFAULT 8,
-    sensor_id TEXT, -- links to moisture sensor
+    sensor_id TEXT, -- DEPRECATED: legacy single moisture sensor (kept for backfill); use sensor_ids
+    sensor_ids TEXT, -- JSON array of moisture sensor IDs (multi-sensor support)
     temp_sensor_id TEXT, -- links to temperature sensor
     ec_sensor_id TEXT, -- links to EC sensor (WH52)
     profile TEXT DEFAULT 'warm_season', -- cool_season, warm_season, seedling

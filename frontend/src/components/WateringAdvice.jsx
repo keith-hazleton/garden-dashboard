@@ -68,7 +68,7 @@ function WateringAdvice() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {sensors.map(sensor => (
             <div
-              key={sensor.sensor_id}
+              key={sensor.bed_id ? `bed-${sensor.bed_id}` : `sensor-${sensor.sensor_id}`}
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -79,7 +79,14 @@ function WateringAdvice() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{sensor.display_name || sensor.sensor_name}</div>
+                <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>
+                  {sensor.display_name || sensor.sensor_name}
+                  {sensor.sensor_count > 1 && (
+                    <span style={{ fontWeight: 400, color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                      (min of {sensor.sensor_count})
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                   {sensor.advice}
                 </div>

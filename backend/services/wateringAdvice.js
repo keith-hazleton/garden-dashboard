@@ -4,6 +4,23 @@ const { getSetting } = require('./alerts');
 
 const CACHE_DURATION_MINUTES = 15;
 
+function parseSensorIds(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s) : [];
+  } catch {
+    return [];
+  }
+}
+
+function moistureStatus(moisture) {
+  if (moisture < 20) return { status: 'critical', advice: 'Water immediately - soil is very dry' };
+  if (moisture < 35) return { status: 'low', advice: 'Consider watering soon' };
+  if (moisture > 70) return { status: 'saturated', advice: 'Soil is very wet - no watering needed' };
+  return { status: 'good', advice: 'Moisture levels are adequate' };
+}
+
 function getCachedData(dataType) {
   const cached = db.prepare(`
     SELECT data, fetched_at FROM weather_cache
@@ -77,33 +94,51 @@ async function getWateringAdvice() {
     forecastData.forecast = forecastData.forecast.slice(0, 3);
   }
 
-  // Calculate per-sensor recommendations
+  // Group sensor readings by bed (when assigned). Each bed produces one
+  // recommendation using the minimum moisture across its sensors. Sensors
+  // not assigned to any bed remain per-sensor.
+  const beds = db.prepare(`SELECT id, name, sensor_ids, sensor_id FROM beds`).all();
+  const sensorToBed = new Map();
+  for (const b of beds) {
+    const ids = parseSensorIds(b.sensor_ids);
+    const fallback = ids.length === 0 && b.sensor_id ? [b.sensor_id] : ids;
+    for (const sid of fallback) sensorToBed.set(sid, { id: b.id, name: b.name });
+  }
+
+  const bedGroups = new Map();
+  const looseSensors = [];
+  for (const sensor of sensorReadings) {
+    const bed = sensorToBed.get(sensor.sensor_id);
+    if (bed) {
+      if (!bedGroups.has(bed.id)) bedGroups.set(bed.id, { bed, readings: [] });
+      bedGroups.get(bed.id).readings.push(sensor);
+    } else {
+      looseSensors.push(sensor);
+    }
+  }
+
   const recommendations = [];
 
-  for (const sensor of sensorReadings) {
-    const moisture = sensor.moisture_percent;
-    let status = 'ok';
-    let advice = '';
+  for (const { bed, readings } of bedGroups.values()) {
+    const minMoisture = Math.min(...readings.map(r => r.moisture_percent));
+    const { status, advice } = moistureStatus(minMoisture);
+    recommendations.push({
+      bed_id: bed.id,
+      display_name: bed.name,
+      moisture_percent: minMoisture,
+      sensor_count: readings.length,
+      status,
+      advice
+    });
+  }
 
-    if (moisture < 20) {
-      status = 'critical';
-      advice = 'Water immediately - soil is very dry';
-    } else if (moisture < 35) {
-      status = 'low';
-      advice = 'Consider watering soon';
-    } else if (moisture > 70) {
-      status = 'saturated';
-      advice = 'Soil is very wet - no watering needed';
-    } else {
-      status = 'good';
-      advice = 'Moisture levels are adequate';
-    }
-
+  for (const sensor of looseSensors) {
+    const { status, advice } = moistureStatus(sensor.moisture_percent);
     recommendations.push({
       sensor_id: sensor.sensor_id,
       sensor_name: sensor.sensor_name,
       display_name: getDisplayName(sensor.sensor_id, sensor.sensor_name),
-      moisture_percent: moisture,
+      moisture_percent: sensor.moisture_percent,
       status,
       advice
     });

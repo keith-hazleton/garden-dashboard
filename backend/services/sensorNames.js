@@ -7,9 +7,14 @@ const db = require('../models/db');
  * Otherwise falls back to the hardware sensor name.
  */
 function getDisplayName(sensorId, fallbackName) {
-  const moistureBed = db.prepare(
-    'SELECT name FROM beds WHERE sensor_id = ?'
-  ).get(sensorId);
+  // Look for any bed whose sensor_ids JSON array contains this sensor.
+  // Falls back to the legacy single sensor_id column for beds not yet migrated.
+  const moistureBed = db.prepare(`
+    SELECT b.name
+    FROM beds b, json_each(COALESCE(b.sensor_ids, json_array(b.sensor_id))) je
+    WHERE je.value = ?
+    LIMIT 1
+  `).get(sensorId);
 
   if (moistureBed) {
     return `${moistureBed.name} Moisture`;

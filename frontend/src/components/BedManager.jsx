@@ -28,7 +28,7 @@ function BedManager({ watchedKey }) {
   const [watchedPlants, setWatchedPlants] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '', ec_sensor_id: '' })
+  const [newBed, setNewBed] = useState({ name: '', rows: 4, cols: 8, sensor_ids: [], temp_sensor_id: '', ec_sensor_id: '' })
   const [expandedPlant, setExpandedPlant] = useState(null)
   const [companionInfo, setCompanionInfo] = useState(null)
   const [editingBed, setEditingBed] = useState(null)
@@ -121,7 +121,7 @@ function BedManager({ watchedKey }) {
       if (res.ok) {
         const bed = await res.json()
         setShowCreateForm(false)
-        setNewBed({ name: '', rows: 4, cols: 8, sensor_id: '', temp_sensor_id: '', ec_sensor_id: '' })
+        setNewBed({ name: '', rows: 4, cols: 8, sensor_ids: [], temp_sensor_id: '', ec_sensor_id: '' })
         fetchBeds()
         setSelectedBed(bed.id)
       }
@@ -153,7 +153,7 @@ function BedManager({ watchedKey }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sensor_id: editingBed.sensor_id || null,
+          sensor_ids: editingBed.sensor_ids || [],
           temp_sensor_id: editingBed.temp_sensor_id || null,
           ec_sensor_id: editingBed.ec_sensor_id || null,
           profile: editingBed.profile || null
@@ -271,18 +271,38 @@ function BedManager({ watchedKey }) {
                 max="20"
               />
             </div>
-            <div>
-              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Moisture Sensor</label>
-              <select
-                className="input"
-                value={newBed.sensor_id}
-                onChange={e => setNewBed({ ...newBed, sensor_id: e.target.value })}
-              >
-                <option value="">No sensor</option>
-                {sensors.filter(s => s.sensor_id.includes('moisture')).map(s => (
-                  <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
-                ))}
-              </select>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Moisture Sensors (check all in this bed)</label>
+              <div style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+                padding: '0.5rem',
+                background: 'var(--bg-secondary)',
+                borderRadius: '0.375rem',
+                fontSize: '0.75rem'
+              }}>
+                {sensors.filter(s => s.sensor_id.includes('moisture')).length === 0 ? (
+                  <span style={{ color: 'var(--text-secondary)' }}>No moisture sensors detected</span>
+                ) : sensors.filter(s => s.sensor_id.includes('moisture')).map(s => {
+                  const checked = newBed.sensor_ids.includes(s.sensor_id)
+                  return (
+                    <label key={s.sensor_id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={e => {
+                          const next = e.target.checked
+                            ? [...newBed.sensor_ids, s.sensor_id]
+                            : newBed.sensor_ids.filter(id => id !== s.sensor_id)
+                          setNewBed({ ...newBed, sensor_ids: next })
+                        }}
+                      />
+                      {s.display_name || s.sensor_name}
+                    </label>
+                  )
+                })}
+              </div>
             </div>
             <div>
               <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Temp Sensor</label>
@@ -350,7 +370,7 @@ function BedManager({ watchedKey }) {
               )}
             </div>
 
-            {currentBed.current_moisture !== null && (
+            {currentBed.current_moisture != null && (
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -367,6 +387,11 @@ function BedManager({ watchedKey }) {
                          'var(--accent-green)'
                 }}>
                   💧 {Math.round(currentBed.current_moisture)}%
+                  {currentBed.moisture_breakdown?.length > 1 && (
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 400, marginLeft: '0.25rem' }}>
+                      (min of {currentBed.moisture_breakdown.length})
+                    </span>
+                  )}
                 </span>
               </div>
             )}
@@ -390,7 +415,7 @@ function BedManager({ watchedKey }) {
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button
                 onClick={() => setEditingBed(editingBed ? null : {
-                  sensor_id: currentBed.sensor_id || '',
+                  sensor_ids: Array.isArray(currentBed.sensor_ids) ? currentBed.sensor_ids : [],
                   temp_sensor_id: currentBed.temp_sensor_id || '',
                   ec_sensor_id: currentBed.ec_sensor_id || '',
                   profile: bedDetail?.profile || 'warm_season'
@@ -409,6 +434,24 @@ function BedManager({ watchedKey }) {
               </button>
             </div>
           </div>
+
+          {/* Moisture breakdown when multiple sensors */}
+          {currentBed.moisture_breakdown?.length > 1 && (
+            <div style={{
+              fontSize: '0.7rem',
+              color: 'var(--text-secondary)',
+              marginBottom: '0.5rem',
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap'
+            }}>
+              {currentBed.moisture_breakdown.map(b => (
+                <span key={b.sensor_id}>
+                  {b.display_name}: <strong>{Math.round(b.moisture_percent)}%</strong>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Profile suggestion banner */}
           {bedDetail?.suggested_profile && bedDetail.suggested_profile !== bedDetail.profile && (
@@ -446,19 +489,38 @@ function BedManager({ watchedKey }) {
               alignItems: 'flex-end',
               flexWrap: 'wrap'
             }}>
-              <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Moisture Sensor</label>
-                <select
-                  className="input"
-                  value={editingBed.sensor_id}
-                  onChange={e => setEditingBed({ ...editingBed, sensor_id: e.target.value })}
-                  style={{ minWidth: '180px' }}
-                >
-                  <option value="">No sensor</option>
-                  {sensors.filter(s => s.sensor_id.includes('moisture')).map(s => (
-                    <option key={s.sensor_id} value={s.sensor_id}>{s.display_name || s.sensor_name}</option>
-                  ))}
-                </select>
+              <div style={{ flex: '1 1 100%' }}>
+                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Moisture Sensors (check all in this bed)</label>
+                <div style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  padding: '0.5rem',
+                  background: 'var(--bg-secondary)',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem'
+                }}>
+                  {sensors.filter(s => s.sensor_id.includes('moisture')).length === 0 ? (
+                    <span style={{ color: 'var(--text-secondary)' }}>No moisture sensors detected</span>
+                  ) : sensors.filter(s => s.sensor_id.includes('moisture')).map(s => {
+                    const checked = editingBed.sensor_ids.includes(s.sensor_id)
+                    return (
+                      <label key={s.sensor_id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={e => {
+                            const next = e.target.checked
+                              ? [...editingBed.sensor_ids, s.sensor_id]
+                              : editingBed.sensor_ids.filter(id => id !== s.sensor_id)
+                            setEditingBed({ ...editingBed, sensor_ids: next })
+                          }}
+                        />
+                        {s.display_name || s.sensor_name}
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
               <div>
                 <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>Temp Sensor</label>

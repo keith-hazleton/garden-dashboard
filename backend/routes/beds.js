@@ -2,18 +2,65 @@ const express = require('express');
 const router = express.Router();
 const db = require('../models/db');
 const { computeSuggestedProfile } = require('../services/bedProfiles');
+const { getDisplayName } = require('../services/sensorNames');
+
+function parseSensorIds(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(s => typeof s === 'string' && s) : [];
+  } catch {
+    return [];
+  }
+}
+
+function getLatestMoistureMap() {
+  const rows = db.prepare(`
+    SELECT sensor_id, sensor_name, moisture_percent, timestamp
+    FROM sensor_readings
+    WHERE sensor_type = 'moisture'
+      AND id IN (
+        SELECT MAX(id) FROM sensor_readings WHERE sensor_type = 'moisture' GROUP BY sensor_id
+      )
+  `).all();
+  const map = new Map();
+  for (const r of rows) map.set(r.sensor_id, r);
+  return map;
+}
+
+// Resolve moisture data for a bed from its sensor_ids JSON.
+// Returns { sensor_ids, current_moisture (min), moisture_updated_at (most recent), moisture_breakdown }
+function attachMoistureData(bed, latestMap) {
+  const sensor_ids = parseSensorIds(bed.sensor_ids);
+  const breakdown = [];
+  let mostRecent = null;
+  for (const sid of sensor_ids) {
+    const r = latestMap.get(sid);
+    if (r) {
+      breakdown.push({
+        sensor_id: sid,
+        display_name: getDisplayName(sid, r.sensor_name),
+        moisture_percent: r.moisture_percent,
+        timestamp: r.timestamp
+      });
+      if (!mostRecent || r.timestamp > mostRecent) mostRecent = r.timestamp;
+    }
+  }
+  const values = breakdown.map(b => b.moisture_percent).filter(v => v != null);
+  const current_moisture = values.length ? Math.min(...values) : null;
+  return {
+    sensor_ids,
+    current_moisture,
+    moisture_updated_at: mostRecent,
+    moisture_breakdown: breakdown
+  };
+}
 
 // Get all beds with current moisture readings
 router.get('/', (req, res) => {
   try {
     const beds = db.prepare(`
       SELECT b.*,
-        (SELECT moisture_percent FROM sensor_readings
-         WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as current_moisture,
-        (SELECT timestamp FROM sensor_readings
-         WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at,
         (SELECT ec_us_cm FROM sensor_readings
          WHERE sensor_id = b.ec_sensor_id
          ORDER BY timestamp DESC LIMIT 1) as current_ec,
@@ -24,6 +71,8 @@ router.get('/', (req, res) => {
       ORDER BY b.name
     `).all();
 
+    const latestMap = getLatestMoistureMap();
+
     // Get placement counts for each bed
     const placementCounts = db.prepare(`
       SELECT bed_id, COUNT(*) as count FROM bed_placements GROUP BY bed_id
@@ -33,6 +82,7 @@ router.get('/', (req, res) => {
 
     const result = beds.map(bed => ({
       ...bed,
+      ...attachMoistureData(bed, latestMap),
       placement_count: countMap[bed.id] || 0,
       total_cells: bed.rows * bed.cols
     }));
@@ -49,14 +99,8 @@ router.get('/:id', (req, res) => {
   try {
     const { id } = req.params;
 
-    const bed = db.prepare(`
+    const bedRow = db.prepare(`
       SELECT b.*,
-        (SELECT moisture_percent FROM sensor_readings
-         WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as current_moisture,
-        (SELECT timestamp FROM sensor_readings
-         WHERE sensor_id = b.sensor_id
-         ORDER BY timestamp DESC LIMIT 1) as moisture_updated_at,
         (SELECT ec_us_cm FROM sensor_readings
          WHERE sensor_id = b.ec_sensor_id
          ORDER BY timestamp DESC LIMIT 1) as current_ec,
@@ -67,9 +111,11 @@ router.get('/:id', (req, res) => {
       WHERE b.id = ?
     `).get(id);
 
-    if (!bed) {
+    if (!bedRow) {
       return res.status(404).json({ error: 'Bed not found' });
     }
+
+    const bed = { ...bedRow, ...attachMoistureData(bedRow, getLatestMoistureMap()) };
 
     // Get all placements with plant info
     const placements = db.prepare(`
@@ -150,19 +196,23 @@ router.get('/:id', (req, res) => {
 // Create a new bed
 router.post('/', (req, res) => {
   try {
-    const { name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, notes } = req.body;
+    const { name, rows, cols, sensor_ids, temp_sensor_id, ec_sensor_id, notes } = req.body;
 
     if (!name) {
       return res.status(400).json({ error: 'Bed name is required' });
     }
 
-    const result = db.prepare(`
-      INSERT INTO beds (name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(name, rows || 4, cols || 8, sensor_id, temp_sensor_id, ec_sensor_id, notes);
+    const sensorIdsJson = Array.isArray(sensor_ids) && sensor_ids.length
+      ? JSON.stringify(sensor_ids.filter(Boolean))
+      : null;
 
-    const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(bed);
+    const result = db.prepare(`
+      INSERT INTO beds (name, rows, cols, sensor_ids, temp_sensor_id, ec_sensor_id, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name, rows || 4, cols || 8, sensorIdsJson, temp_sensor_id, ec_sensor_id, notes);
+
+    const bedRow = db.prepare('SELECT * FROM beds WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json({ ...bedRow, sensor_ids: parseSensorIds(bedRow.sensor_ids) });
   } catch (error) {
     console.error('Error creating bed:', error);
     res.status(500).json({ error: 'Failed to create bed' });
@@ -173,28 +223,35 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { id } = req.params;
-    const { name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, profile, notes } = req.body;
+    const { name, rows, cols, sensor_ids, temp_sensor_id, ec_sensor_id, profile, notes } = req.body;
 
     const existing = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
     if (!existing) {
       return res.status(404).json({ error: 'Bed not found' });
     }
 
+    // sensor_ids: undefined leaves it alone; null clears it; array overwrites
+    const sensorIdsJson = sensor_ids === undefined
+      ? existing.sensor_ids
+      : Array.isArray(sensor_ids) && sensor_ids.length
+        ? JSON.stringify(sensor_ids.filter(Boolean))
+        : null;
+
     db.prepare(`
       UPDATE beds SET
         name = COALESCE(?, name),
         rows = COALESCE(?, rows),
         cols = COALESCE(?, cols),
-        sensor_id = ?,
+        sensor_ids = ?,
         temp_sensor_id = ?,
         ec_sensor_id = ?,
         profile = COALESCE(?, profile),
         notes = ?
       WHERE id = ?
-    `).run(name, rows, cols, sensor_id, temp_sensor_id, ec_sensor_id, profile, notes, id);
+    `).run(name, rows, cols, sensorIdsJson, temp_sensor_id, ec_sensor_id, profile, notes, id);
 
-    const bed = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
-    res.json(bed);
+    const bedRow = db.prepare('SELECT * FROM beds WHERE id = ?').get(id);
+    res.json({ ...bedRow, sensor_ids: parseSensorIds(bedRow.sensor_ids) });
   } catch (error) {
     console.error('Error updating bed:', error);
     res.status(500).json({ error: 'Failed to update bed' });

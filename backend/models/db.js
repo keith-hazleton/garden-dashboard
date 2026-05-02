@@ -23,6 +23,14 @@ try {
   if (!e.message.includes('duplicate column')) throw e;
 }
 try {
+  db.exec(`ALTER TABLE beds ADD COLUMN sensor_ids TEXT`);
+  // One-time backfill: wrap any existing single sensor_id as a JSON array
+  db.exec(`UPDATE beds SET sensor_ids = json_array(sensor_id)
+           WHERE sensor_id IS NOT NULL AND sensor_ids IS NULL`);
+} catch (e) {
+  if (!e.message.includes('duplicate column')) throw e;
+}
+try {
   db.prepare(`INSERT OR IGNORE INTO alert_settings (key, value) VALUES (?, ?)`).run('seedling_graduation_weeks', '4');
 } catch (e) {
   // alert_settings table may not exist yet on first run before init-db
