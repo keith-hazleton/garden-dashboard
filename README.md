@@ -103,7 +103,7 @@ cd /path/to/garden-dashboard
 tar --exclude='node_modules' --exclude='data/*.db' -czf garden-dashboard.tar.gz .
 
 # Copy to Pi (replace with your Pi's IP address)
-scp garden-dashboard.tar.gz pi@192.168.1.100:~/
+scp garden-dashboard.tar.gz pi@192.168.68.126:~/
 ```
 
 **Option B: Clone from Git (if you've pushed to a repo)**
@@ -189,12 +189,17 @@ journalctl -u garden-dashboard -f
 
 ### Step 6: Configure Ecowitt GW3000
 
-In the Ecowitt app or gateway web interface:
+Open the gateway's **local web interface** in a browser at `http://<gateway-ip>/`
+(e.g. `http://192.168.68.104/`). This setting is *not* in the Ecowitt phone app —
+that app only manages the ecowitt.net cloud account.
 
-1. Go to **Settings** → **Customized Upload**
-2. Add a new server with these settings:
+To find the gateway's IP, check your router's client list, or scan for the Fine
+Offset local API port: `nc -z -w 1 192.168.68.<n> 45000` across your subnet.
+
+1. Go to **Weather Services** → **Customized**
+2. Set the upload server to:
    - **Protocol**: HTTP
-   - **Server**: Your Pi's IP address (e.g., `192.168.1.100`)
+   - **Server**: Your Pi's IP address (e.g., `192.168.68.126`)
    - **Port**: `3000`
    - **Path**: `/api/sensors/ecowitt`
    - **Upload Interval**: 60 seconds (or your preference)
@@ -321,12 +326,18 @@ Add at the bottom (adjust for your network):
 
 ```
 interface eth0
-static ip_address=192.168.1.100/24
-static routers=192.168.1.1
-static domain_name_servers=192.168.1.1 8.8.8.8
+static ip_address=192.168.68.126/24
+static routers=192.168.68.1
+static domain_name_servers=192.168.68.1 8.8.8.8
 ```
 
 Reboot: `sudo reboot`
+
+> **Better option:** set a DHCP reservation for the Pi in your router instead.
+> The Ecowitt gateway posts to a hardcoded IP, so if the Pi's address ever
+> changes (new router, new subnet), sensor ingest silently stops — the dashboard
+> keeps loading normally, it just stops receiving data. Reserve the gateway's
+> address too.
 
 ---
 
